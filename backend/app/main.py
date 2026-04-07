@@ -28,6 +28,7 @@ from app.knowledge.search_client import ensure_index, ensure_documents_index, se
 from app.knowledge.blob_client import BlobReportStorage
 from app.tools.translate import ensure_english
 from app.export.report import generate_markdown_report, generate_word_report, generate_pdf_report
+from app.documents.router import router as documents_router
 
 # Store agent names after creation
 _agent_names: dict[str, str] = {}
@@ -74,6 +75,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(APIKeyMiddleware)
+app.include_router(documents_router)
 
 
 class AssessmentRequest(BaseModel):
