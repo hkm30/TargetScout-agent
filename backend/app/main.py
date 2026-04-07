@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 from app.agents.setup import create_all_agents
 from app.agents.orchestrator import run_full_pipeline, run_full_pipeline_stream, parse_user_input
 from app.knowledge.cosmos_client import CosmosReportStore
-from app.knowledge.search_client import ensure_index, ensure_documents_index, search_reports, delete_report as delete_search_report
+from app.knowledge.search_client import ensure_index, ensure_documents_index, search_reports, unified_search, delete_report as delete_search_report
 from app.knowledge.blob_client import BlobReportStorage
 from app.tools.translate import ensure_english
 from app.export.report import generate_markdown_report, generate_word_report, generate_pdf_report
@@ -93,6 +93,8 @@ class ConfirmAssessmentRequest(BaseModel):
     synonyms: str = ""
     focus: str = ""
     time_range: str = ""
+    document_ids: list[str] = []
+    user_suggestions: str = ""
 
 
 @app.post("/api/assess/parse")
@@ -123,6 +125,8 @@ async def assess_confirm(req: ConfirmAssessmentRequest):
             synonyms=req.synonyms,
             focus=req.focus,
             time_range=req.time_range,
+            document_ids=req.document_ids,
+            user_suggestions=req.user_suggestions,
         ):
             event_type = event.get("event", "message")
             data = json_mod.dumps(event.get("data", {}), ensure_ascii=False)
@@ -281,7 +285,7 @@ async def knowledge_search(req: KnowledgeSearchRequest):
     """Search the knowledge base (translates non-English queries first)."""
     try:
         en_query = await ensure_english(req.query)
-        results = await search_reports(query=en_query, top_k=req.top_k)
+        results = await unified_search(query=en_query, top_k=req.top_k)
         return {"results": results, "count": len(results)}
     except Exception as e:
         logger.error("Knowledge search failed: %s", e)
