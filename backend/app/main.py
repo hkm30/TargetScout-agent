@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 from app.agents.setup import create_all_agents
 from app.agents.orchestrator import run_full_pipeline, run_full_pipeline_stream, parse_user_input
 from app.knowledge.cosmos_client import CosmosReportStore
-from app.knowledge.search_client import ensure_index, search_reports, delete_report as delete_search_report
+from app.knowledge.search_client import ensure_index, ensure_documents_index, search_reports, delete_report as delete_search_report
 from app.knowledge.blob_client import BlobReportStorage
 from app.tools.translate import ensure_english
 from app.export.report import generate_markdown_report, generate_word_report, generate_pdf_report
@@ -38,6 +38,7 @@ async def lifespan(app: FastAPI):
     """Create agents and search index on startup."""
     global _agent_names
     ensure_index()
+    ensure_documents_index()
     _agent_names = create_all_agents()
     yield
 
