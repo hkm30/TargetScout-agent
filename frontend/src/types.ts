@@ -40,6 +40,17 @@ export interface Paper {
   source_type: string;
 }
 
+export interface UploadedDocument {
+  id: string;
+  file_name: string;
+  file_size: number;
+  status: "uploading" | "parsing" | "ready" | "failed";
+  error?: string;
+  abstract?: string;
+  summary?: string;
+  created_at?: string;
+}
+
 export interface SubTask {
   agent: string;
   description: string;
@@ -52,6 +63,8 @@ export interface ParsedInput {
   synonyms: string;
   focus: string;
   time_range: string;
+  document_ids?: string[];
+  user_suggestions?: string;
 }
 
 export interface ParseResult {
@@ -98,6 +111,9 @@ export interface SearchResultItem {
   summary: string;
   created_at: string;
   score: number;
+  source_type?: "report" | "private_document";
+  file_name?: string;
+  document_id?: string;
 }
 
 export interface PartialResultData {
