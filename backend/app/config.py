@@ -47,6 +47,16 @@ class Settings:
     BLOB_REPORTS_CONTAINER: str = os.environ.get("BLOB_REPORTS_CONTAINER", "reports")
     BLOB_SNAPSHOTS_CONTAINER: str = os.environ.get("BLOB_SNAPSHOTS_CONTAINER", "raw-search-snapshots")
 
+    # Azure Document Intelligence
+    DOC_INTELLIGENCE_ENDPOINT: str = os.environ.get("AZURE_DOC_INTELLIGENCE_ENDPOINT", "")
+    DOC_INTELLIGENCE_KEY: str = os.environ.get("AZURE_DOC_INTELLIGENCE_KEY", "")
+
+    # Private documents
+    BLOB_DOCUMENTS_CONTAINER: str = os.environ.get("BLOB_DOCUMENTS_CONTAINER", "private-documents")
+    SEARCH_DOCUMENTS_INDEX_NAME: str = os.environ.get("AZURE_SEARCH_DOCUMENTS_INDEX_NAME", "drug-target-documents")
+    DOC_MAX_FILE_SIZE_MB: int = int(os.environ.get("DOC_MAX_FILE_SIZE_MB", "10"))
+    DOC_MAX_FILE_COUNT: int = int(os.environ.get("DOC_MAX_FILE_COUNT", "5"))
+
     @property
     def EMBEDDING_DIMENSIONS(self) -> int:
         override = int(os.environ.get("EMBEDDING_DIMENSIONS", "0"))
