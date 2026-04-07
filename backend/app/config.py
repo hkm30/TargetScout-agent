@@ -51,6 +51,7 @@ class Settings:
     # Private documents
     BLOB_DOCUMENTS_CONTAINER: str = os.environ.get("BLOB_DOCUMENTS_CONTAINER", "private-documents")
     SEARCH_DOCUMENTS_INDEX_NAME: str = os.environ.get("AZURE_SEARCH_DOCUMENTS_INDEX_NAME", "drug-target-documents")
+    COSMOS_DOCUMENTS_CONTAINER: str = os.environ.get("COSMOS_DOCUMENTS_CONTAINER", "documents")
     DOC_MAX_FILE_SIZE_MB: int = int(os.environ.get("DOC_MAX_FILE_SIZE_MB", "10"))
     DOC_MAX_FILE_COUNT: int = int(os.environ.get("DOC_MAX_FILE_COUNT", "5"))
 

@@ -3,19 +3,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 from fastapi import FastAPI
 
-from app.documents.router import router, _document_store
+from app.documents.router import router
 
 # Create a minimal app with just the documents router for testing
 _test_app = FastAPI()
 _test_app.include_router(router)
-
-
-@pytest.fixture(autouse=True)
-def clear_document_store():
-    """Clear the in-memory store before each test."""
-    _document_store.clear()
-    yield
-    _document_store.clear()
 
 
 def _mock_all_deps():
@@ -26,7 +18,18 @@ def _mock_all_deps():
         "summarize": patch("app.documents.router.generate_summaries", new_callable=AsyncMock),
         "index": patch("app.documents.router.index_document_chunks", new_callable=AsyncMock),
         "delete_chunks": patch("app.documents.router.delete_document_chunks", new_callable=AsyncMock),
+        "cosmos": patch("app.documents.router._get_cosmos_docs"),
     }
+
+
+def _make_cosmos_mock():
+    """Create a mock CosmosDocumentStore with async methods."""
+    mock = MagicMock()
+    mock.save_document = AsyncMock()
+    mock.get_document = AsyncMock(return_value=None)
+    mock.delete_document = AsyncMock()
+    mock.get_documents_by_ids = AsyncMock(return_value=[])
+    return mock
 
 
 @pytest.mark.asyncio
@@ -35,10 +38,14 @@ async def test_upload_success():
     with patches["blob"] as mock_blob_cls, \
          patches["extract"] as mock_extract, \
          patches["summarize"] as mock_summarize, \
-         patches["index"] as mock_index:
+         patches["index"] as mock_index, \
+         patches["cosmos"] as mock_get_cosmos:
         mock_blob_instance = MagicMock()
         mock_blob_instance.upload_document.return_value = "https://blob.test/doc.txt"
         mock_blob_cls.return_value = mock_blob_instance
+
+        mock_cosmos = _make_cosmos_mock()
+        mock_get_cosmos.return_value = mock_cosmos
 
         mock_extract.return_value = {
             "text": "Hello world content.",
@@ -69,12 +76,14 @@ async def test_upload_success():
         assert doc["abstract"] == "Detailed abstract."
         assert doc["summary"] == "Brief summary."
         mock_index.assert_called_once()
+        mock_cosmos.save_document.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_upload_unsupported_format():
     patches = _mock_all_deps()
-    with patches["blob"], patches["extract"], patches["summarize"], patches["index"]:
+    with patches["blob"], patches["extract"], patches["summarize"], patches["index"], \
+         patches["cosmos"]:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=_test_app),
             base_url="http://test",
@@ -94,7 +103,8 @@ async def test_upload_unsupported_format():
 @pytest.mark.asyncio
 async def test_upload_empty_file():
     patches = _mock_all_deps()
-    with patches["blob"], patches["extract"], patches["summarize"], patches["index"]:
+    with patches["blob"], patches["extract"], patches["summarize"], patches["index"], \
+         patches["cosmos"]:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=_test_app),
             base_url="http://test",
@@ -113,7 +123,8 @@ async def test_upload_empty_file():
 @pytest.mark.asyncio
 async def test_upload_too_many_files():
     patches = _mock_all_deps()
-    with patches["blob"], patches["extract"], patches["summarize"], patches["index"]:
+    with patches["blob"], patches["extract"], patches["summarize"], patches["index"], \
+         patches["cosmos"]:
         files = [("files", (f"file{i}.txt", b"content", "text/plain")) for i in range(6)]
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=_test_app),
@@ -127,49 +138,60 @@ async def test_upload_too_many_files():
 
 @pytest.mark.asyncio
 async def test_get_document_found():
-    # Pre-populate the store
-    _document_store["test-doc-id"] = {
-        "id": "test-doc-id",
-        "file_name": "report.pdf",
-        "file_size": 1024,
-        "status": "ready",
-    }
+    patches = _mock_all_deps()
+    with patches["cosmos"] as mock_get_cosmos:
+        mock_cosmos = _make_cosmos_mock()
+        mock_cosmos.get_document.return_value = {
+            "id": "test-doc-id",
+            "file_name": "report.pdf",
+            "file_size": 1024,
+            "status": "ready",
+        }
+        mock_get_cosmos.return_value = mock_cosmos
 
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=_test_app),
-        base_url="http://test",
-    ) as client:
-        resp = await client.get("/api/documents/test-doc-id")
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=_test_app),
+            base_url="http://test",
+        ) as client:
+            resp = await client.get("/api/documents/test-doc-id")
 
-    assert resp.status_code == 200
-    assert resp.json()["id"] == "test-doc-id"
-    assert resp.json()["file_name"] == "report.pdf"
+        assert resp.status_code == 200
+        assert resp.json()["id"] == "test-doc-id"
+        assert resp.json()["file_name"] == "report.pdf"
 
 
 @pytest.mark.asyncio
 async def test_get_document_not_found():
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=_test_app),
-        base_url="http://test",
-    ) as client:
-        resp = await client.get("/api/documents/nonexistent-id")
+    patches = _mock_all_deps()
+    with patches["cosmos"] as mock_get_cosmos:
+        mock_cosmos = _make_cosmos_mock()
+        mock_get_cosmos.return_value = mock_cosmos
 
-    assert resp.status_code == 404
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=_test_app),
+            base_url="http://test",
+        ) as client:
+            resp = await client.get("/api/documents/nonexistent-id")
+
+        assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_delete_document():
     patches = _mock_all_deps()
-    with patches["blob"] as mock_blob_cls, patches["delete_chunks"] as mock_delete:
+    with patches["blob"] as mock_blob_cls, patches["delete_chunks"] as mock_delete, \
+         patches["cosmos"] as mock_get_cosmos:
         mock_blob_instance = MagicMock()
         mock_blob_cls.return_value = mock_blob_instance
 
-        _document_store["del-doc-id"] = {
+        mock_cosmos = _make_cosmos_mock()
+        mock_cosmos.get_document.return_value = {
             "id": "del-doc-id",
             "file_name": "old.txt",
             "file_size": 512,
             "status": "ready",
         }
+        mock_get_cosmos.return_value = mock_cosmos
 
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=_test_app),
@@ -179,19 +201,24 @@ async def test_delete_document():
 
         assert resp.status_code == 200
         assert resp.json()["status"] == "deleted"
-        assert "del-doc-id" not in _document_store
+        mock_cosmos.delete_document.assert_called_once_with("del-doc-id")
         mock_delete.assert_called_once_with("del-doc-id")
 
 
 @pytest.mark.asyncio
 async def test_delete_document_not_found():
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=_test_app),
-        base_url="http://test",
-    ) as client:
-        resp = await client.delete("/api/documents/nonexistent-id")
+    patches = _mock_all_deps()
+    with patches["cosmos"] as mock_get_cosmos:
+        mock_cosmos = _make_cosmos_mock()
+        mock_get_cosmos.return_value = mock_cosmos
 
-    assert resp.status_code == 404
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=_test_app),
+            base_url="http://test",
+        ) as client:
+            resp = await client.delete("/api/documents/nonexistent-id")
+
+        assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
@@ -201,10 +228,14 @@ async def test_upload_mixed_valid_and_invalid():
     with patches["blob"] as mock_blob_cls, \
          patches["extract"] as mock_extract, \
          patches["summarize"] as mock_summarize, \
-         patches["index"]:
+         patches["index"], \
+         patches["cosmos"] as mock_get_cosmos:
         mock_blob_instance = MagicMock()
         mock_blob_instance.upload_document.return_value = "https://blob.test/doc"
         mock_blob_cls.return_value = mock_blob_instance
+
+        mock_cosmos = _make_cosmos_mock()
+        mock_get_cosmos.return_value = mock_cosmos
 
         mock_extract.return_value = {
             "text": "content",

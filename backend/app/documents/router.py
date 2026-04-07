@@ -10,15 +10,12 @@ from app.documents.parser import validate_file, extract_text
 from app.documents.chunker import chunk_text
 from app.documents.summarizer import generate_summaries
 from app.knowledge.blob_client import BlobDocumentStorage
+from app.knowledge.cosmos_client import _get_cosmos_docs
 from app.knowledge.search_client import index_document_chunks, delete_document_chunks
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
-
-# In-memory document metadata store (keyed by document_id)
-# In production this would be stored in Cosmos DB; kept simple for this feature.
-_document_store: dict[str, dict] = {}
 
 
 @router.post("/upload")
@@ -76,7 +73,7 @@ async def upload_documents(files: list[UploadFile] = File(...)):
                 "status": "ready",
                 "created_at": now,
             }
-            _document_store[document_id] = doc_meta
+            await _get_cosmos_docs().save_document(doc_meta)
 
             results.append({
                 "id": document_id,
@@ -97,7 +94,7 @@ async def upload_documents(files: list[UploadFile] = File(...)):
 @router.get("/{document_id}")
 async def get_document(document_id: str):
     """Get document metadata and summaries."""
-    doc = _document_store.get(document_id)
+    doc = await _get_cosmos_docs().get_document(document_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
     return doc
@@ -106,9 +103,15 @@ async def get_document(document_id: str):
 @router.delete("/{document_id}")
 async def delete_document(document_id: str):
     """Delete a document from Blob Storage and AI Search."""
-    doc = _document_store.pop(document_id, None)
+    doc = await _get_cosmos_docs().get_document(document_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    # Delete from Cosmos DB
+    try:
+        await _get_cosmos_docs().delete_document(document_id)
+    except Exception:
+        logger.warning("Cosmos DB deletion failed for document %s", document_id)
 
     # Delete from Blob
     try:

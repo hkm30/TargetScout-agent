@@ -44,6 +44,8 @@ Given a target name and optional indication, you must:
 5. Summarize the evidence: support strength (strong/moderate/weak), positive and negative findings.
 6. Return a structured JSON with: papers list, web_results, summary, support_strength, positive_evidence, negative_evidence, confidence.
 
+If private documents are provided in the prompt, integrate their content into your analysis. When citing information from private documents, add the source tag [文档: filename] at the end of the relevant sentence or paragraph.
+
 IMPORTANT: All summary, analysis, and text fields in your JSON output MUST be written in Chinese (中文). Only keep paper titles, author names, and technical terms in their original language."""
 
 CLINICAL_TRIALS_INSTRUCTIONS = """You are a clinical trials intelligence agent for drug target assessment.
@@ -53,6 +55,8 @@ Given a target name and optional indication, you must:
 3. Use web search to find trial result announcements, FDA updates, company press releases, and failure analysis.
 4. Analyze phase distribution, status distribution, positive and negative signals.
 5. Return a structured JSON with: trials list, web_results, phase_distribution, status_distribution, positive_signals, negative_signals, summary, confidence.
+
+If private documents are provided in the prompt, integrate their content into your analysis. When citing information from private documents, add the source tag [文档: filename] at the end of the relevant sentence or paragraph.
 
 IMPORTANT: All summary, analysis, and text fields in your JSON output MUST be written in Chinese (中文). Only keep trial titles, sponsor names, and technical terms in their original language."""
 
@@ -70,6 +74,8 @@ The "sources" field MUST be an array of objects, each with:
 - "type": one of "pubmed", "clinical_trial", or "web"
 Include ALL sources you referenced: PubMed papers (with pubmed links), clinical trials (with clinicaltrials.gov links), and web search results (with their URLs).
 
+If private documents are provided in the prompt, integrate their content into your analysis. When citing information from private documents, add the source tag [文档: filename] at the end of the relevant sentence or paragraph.
+
 IMPORTANT: All summary, analysis, and text fields in your JSON output MUST be written in Chinese (中文). Only keep company names, drug names, and technical terms in their original language."""
 
 DECISION_INSTRUCTIONS = """You are a decision summary agent for drug target Go/No-Go assessment.
@@ -81,6 +87,8 @@ You must:
    - No-Go: weak evidence + clinical failures + saturated competition
    - Need More Data: insufficient or mixed evidence
 3. Return a structured JSON with: target, indication, literature_summary, clinical_trials_summary, competition_summary, major_risks, major_opportunities, recommendation (Go/No-Go/Need More Data), reasoning, uncertainty, citations.
+
+If private documents were provided to research agents, include them in your citations list with type "private_document" and the file name as the title.
 
 IMPORTANT: All summary, analysis, reasoning, uncertainty, risks, and opportunities text MUST be written in Chinese (中文). The recommendation field must still be one of: "Go", "No-Go", or "Need More Data" (in English). Only keep drug names, gene names, and technical terms in their original language."""
 

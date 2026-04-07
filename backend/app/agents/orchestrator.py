@@ -229,7 +229,8 @@ def _build_document_context(documents: list[dict], user_suggestions: str = "") -
         parts.append(f"## 用户补充建议\n{user_suggestions}\n")
 
     if parts:
-        parts.append("请结合以上私有文档和用户建议，与你的网络搜索结果进行综合分析。\n")
+        parts.append("请结合以上私有文档和用户建议，与你的网络搜索结果进行综合分析。")
+        parts.append("当你在分析中引用了上述私有文档的内容时，请在对应段落末尾标注来源文件名，格式为 [文档: 文件名]。\n")
 
     return "\n".join(parts)
 
@@ -332,9 +333,10 @@ async def run_full_pipeline(
     # Inject private document context and user suggestions
     doc_context = ""
     if document_ids:
-        from app.documents.router import _document_store
-        docs = [_document_store[did] for did in document_ids if did in _document_store]
-        missing = [did for did in document_ids if did not in _document_store]
+        from app.knowledge.cosmos_client import _get_cosmos_docs
+        docs = await _get_cosmos_docs().get_documents_by_ids(document_ids)
+        found_ids = {d["id"] for d in docs}
+        missing = [did for did in document_ids if did not in found_ids]
         if missing:
             logger.warning("Documents not found in store (server may have restarted): %s", missing)
         if not docs and document_ids:
@@ -442,9 +444,10 @@ async def run_full_pipeline_stream(
     # Inject private document context and user suggestions if provided
     doc_context = ""
     if document_ids:
-        from app.documents.router import _document_store
-        docs = [_document_store[did] for did in document_ids if did in _document_store]
-        missing = [did for did in document_ids if did not in _document_store]
+        from app.knowledge.cosmos_client import _get_cosmos_docs
+        docs = await _get_cosmos_docs().get_documents_by_ids(document_ids)
+        found_ids = {d["id"] for d in docs}
+        missing = [did for did in document_ids if did not in found_ids]
         if missing:
             logger.warning("Documents not found in store (server may have restarted): %s", missing)
             yield {"event": "warning", "data": {"message": f"部分文档未找到（服务可能已重启），缺失 {len(missing)} 个文档"}}
