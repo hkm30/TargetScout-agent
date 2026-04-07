@@ -1,0 +1,8 @@
+import os
+os.environ.setdefault("AZURE_AI_ENDPOINT", "https://test.eastus2.api.cognitive.microsoft.com/")
+os.environ.setdefault("AZURE_AI_KEY", "test-ai-key")
+os.environ.setdefault("SEARCH_ENDPOINT", "https://test.search.windows.net")
+os.environ.setdefault("SEARCH_API_KEY", "test-search-key")
+os.environ.setdefault("COSMOS_ENDPOINT", "https://test.documents.azure.com:443/")
+os.environ.setdefault("COSMOS_KEY", "test-cosmos-key")
+os.environ.setdefault("BLOB_CONNECTION_STRING", "DefaultEndpointsProtocol=https;AccountName=test")
