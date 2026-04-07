@@ -73,12 +73,12 @@ echo ">>> Image tag: $TAG"
 az acr login --name "$ACR_NAME"
 
 echo ">>> Building backend image..."
-docker build -t "$BACKEND_IMAGE:$TAG" "$PROJECT_DIR/backend"
+docker build --platform linux/amd64 --no-cache -t "$BACKEND_IMAGE:$TAG" "$PROJECT_DIR/backend"
 docker push "$BACKEND_IMAGE:$TAG"
 echo "    Pushed: $BACKEND_IMAGE:$TAG  ✓"
 
 echo ">>> Building frontend image..."
-docker build -t "$FRONTEND_IMAGE:$TAG" "$PROJECT_DIR/frontend"
+docker build --platform linux/amd64 --no-cache -t "$FRONTEND_IMAGE:$TAG" "$PROJECT_DIR/frontend"
 docker push "$FRONTEND_IMAGE:$TAG"
 echo "    Pushed: $FRONTEND_IMAGE:$TAG  ✓"
 

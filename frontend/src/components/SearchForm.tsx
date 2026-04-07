@@ -3,7 +3,7 @@ import type { UploadedDocument } from "../types";
 import { uploadDocuments, deleteDocument } from "../api";
 
 interface Props {
-  onSubmit: (target: string, indication: string, synonyms: string, focus: string, timeRange: string, documents: UploadedDocument[]) => void;
+  onSubmit: (target: string, indication: string, synonyms: string, focus: string, timeRange: string, documents: UploadedDocument[], userSuggestions: string) => void;
   loading: boolean;
 }
 
@@ -17,6 +17,7 @@ export function SearchForm({ onSubmit, loading }: Props) {
   const [synonyms, setSynonyms] = useState("");
   const [focus, setFocus] = useState("");
   const [timeRange, setTimeRange] = useState("");
+  const [userSuggestions, setUserSuggestions] = useState("");
   const [documents, setDocuments] = useState<UploadedDocument[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -96,7 +97,7 @@ export function SearchForm({ onSubmit, loading }: Props) {
       onSubmit={(e) => {
         e.preventDefault();
         if (target.trim())
-          onSubmit(target.trim(), indication.trim(), synonyms.trim(), focus.trim(), timeRange, documents.filter((d) => d.status === "ready"));
+          onSubmit(target.trim(), indication.trim(), synonyms.trim(), focus.trim(), timeRange, documents.filter((d) => d.status === "ready"), userSuggestions.trim());
       }}
       style={{ display: "flex", flexDirection: "column", gap: "12px", maxWidth: "500px" }}
     >
@@ -143,6 +144,16 @@ export function SearchForm({ onSubmit, loading }: Props) {
           <option value="clinical">临床信号</option>
           <option value="competition">竞争格局</option>
         </select>
+      </label>
+      <label>
+        其他建议（可选）
+        <textarea
+          value={userSuggestions}
+          onChange={(e) => setUserSuggestions(e.target.value)}
+          placeholder="例如：请关注该靶点在耐药性方面的最新进展，特别是T790M突变..."
+          rows={3}
+          style={{ display: "block", width: "100%", padding: "8px", marginTop: "4px", resize: "vertical" }}
+        />
       </label>
       <label>
         时间范围（可选）

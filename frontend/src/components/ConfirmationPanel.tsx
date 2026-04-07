@@ -7,18 +7,19 @@ interface Props {
   documents: UploadedDocument[];
   onConfirm: (modified: ParsedInput) => void;
   onBack: () => void;
+  initialSuggestions: string;
   onCancel: () => void;
   onRemoveDocument: (docId: string) => void;
   loading: boolean;
 }
 
-export function ConfirmationPanel({ parseResult, documents, onConfirm, onBack, onCancel, onRemoveDocument, loading }: Props) {
+export function ConfirmationPanel({ parseResult, documents, initialSuggestions, onConfirm, onBack, onCancel, onRemoveDocument, loading }: Props) {
   const [target, setTarget] = useState(parseResult.parsed.target);
   const [indication, setIndication] = useState(parseResult.parsed.indication);
   const [synonyms, setSynonyms] = useState(parseResult.parsed.synonyms);
   const [focus, setFocus] = useState(parseResult.parsed.focus);
   const [timeRange, setTimeRange] = useState(parseResult.parsed.time_range);
-  const [userSuggestions, setUserSuggestions] = useState("");
+  const [userSuggestions, setUserSuggestions] = useState(initialSuggestions);
 
   const handleConfirm = () => {
     onConfirm({
@@ -80,6 +81,16 @@ export function ConfirmationPanel({ parseResult, documents, onConfirm, onBack, o
               <option value="clinical">临床信号</option>
               <option value="competition">竞争格局</option>
             </select>
+          </label>
+          <label>
+            其他建议（可选）
+            <textarea
+              value={userSuggestions}
+              onChange={(e) => setUserSuggestions(e.target.value)}
+              placeholder="例如：请关注该靶点在耐药性方面的最新进展，特别是T790M突变..."
+              rows={3}
+              style={{ ...inputStyle, resize: "vertical" }}
+            />
           </label>
           <label>
             时间范围
@@ -188,33 +199,6 @@ export function ConfirmationPanel({ parseResult, documents, onConfirm, onBack, o
 
       {/* Historical context */}
       <HistoricalContext reports={parseResult.knowledge_base_context?.historical_reports || []} />
-
-      {/* User suggestions */}
-      <div
-        style={{
-          background: "#fefce8",
-          border: "1px solid #fde68a",
-          borderRadius: "8px",
-          padding: "16px",
-          marginBottom: "16px",
-          marginTop: "16px",
-        }}
-      >
-        <h3 style={{ margin: "0 0 8px", fontSize: "1em" }}>其他建议（可选）</h3>
-        <p style={{ color: "#666", fontSize: "0.85em", margin: "0 0 8px" }}>
-          您可以在此输入专业见解或补充信息，这些内容将作为分析的重要参考。
-        </p>
-        <textarea
-          value={userSuggestions}
-          onChange={(e) => setUserSuggestions(e.target.value)}
-          placeholder="例如：请关注该靶点在耐药性方面的最新进展，特别是T790M突变..."
-          rows={4}
-          style={{
-            ...inputStyle,
-            resize: "vertical",
-          }}
-        />
-      </div>
 
       {/* Action buttons: [确认并运行] [返回修改] [取消] */}
       <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>

@@ -39,6 +39,7 @@ export default function App() {
   const [agentProgress, setAgentProgress] = useState<Record<string, string>>({});
   const [partialResults, setPartialResults] = useState<Record<string, PartialResultData>>({});
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
+  const [userSuggestions, setUserSuggestions] = useState("");
 
   const handleNavigate = (p: Page) => {
     setPage(p);
@@ -54,6 +55,7 @@ export default function App() {
     setAgentProgress({});
     setPartialResults({});
     setUploadedDocuments([]);
+    setUserSuggestions("");
   };
 
   const handleSubmit = async (
@@ -63,8 +65,10 @@ export default function App() {
     focus: string,
     timeRange: string,
     documents: UploadedDocument[],
+    suggestions: string,
   ) => {
     setUploadedDocuments(documents);
+    setUserSuggestions(suggestions);
     setLoading(true);
     setError("");
     setResult(null);
@@ -206,6 +210,7 @@ export default function App() {
             <ConfirmationPanel
               parseResult={parseResult}
               documents={uploadedDocuments}
+              initialSuggestions={userSuggestions}
               onConfirm={handleConfirm}
               onBack={handleBack}
               onCancel={handleCancel}
