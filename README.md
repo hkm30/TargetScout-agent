@@ -36,7 +36,6 @@ Literature   Clinical    Competition
 - **LLM**: GPT-5.4 (via Azure AI Foundry)
 - **Storage**: Azure Cosmos DB, Azure Blob Storage, Azure AI Search
 - **Infra**: Azure Container Apps (VNet integrated), Azure Container Registry
-- **MCP Server**: Custom Google Scholar search service
 
 ## Features
 
@@ -131,7 +130,7 @@ Both backend and frontend include Dockerfiles for containerized deployment. The 
 │   │   └── types.ts             # TypeScript type definitions
 │   ├── package.json
 │   └── Dockerfile
-├── mcp-google-scholar/          # Custom MCP server for Google Scholar
+├── mcp-google-scholar/          # MCP server for Google Scholar (not yet integrated)
 ├── infra/                       # Azure deployment scripts
 └── architecture.md              # Detailed architecture documentation
 ```
