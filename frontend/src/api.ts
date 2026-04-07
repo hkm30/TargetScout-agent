@@ -202,3 +202,27 @@ export async function searchKnowledge(query: string, topK: number = 5): Promise<
   if (!res.ok) throw new Error(`Search failed: ${res.status}`);
   return res.json();
 }
+
+export interface UploadDocumentsResponse {
+  documents: import("./types").UploadedDocument[];
+}
+
+export async function uploadDocuments(files: File[]): Promise<UploadDocumentsResponse> {
+  const formData = new FormData();
+  files.forEach((file) => formData.append("files", file));
+  const res = await fetch(`${API_BASE}/documents/upload`, {
+    method: "POST",
+    headers: getHeaders(),
+    body: formData,
+  });
+  if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteDocument(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/documents/${id}`, {
+    method: "DELETE",
+    headers: getHeaders(),
+  });
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+}

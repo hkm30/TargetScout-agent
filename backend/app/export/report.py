@@ -151,9 +151,8 @@ def _setup_pdf_fonts(pdf: FPDF) -> str:
     else:
         logger.warning(
             "CJK font not found at %s — PDF will use Helvetica (CJK characters will be missing). "
-            "Download NotoSansSC from Google Fonts and place in %s",
+            "Run backend/app/export/fonts/download_fonts.sh to fix this.",
             _FONT_REGULAR,
-            _FONT_DIR,
         )
         return "Helvetica"
 

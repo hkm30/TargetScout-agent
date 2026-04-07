@@ -1,20 +1,24 @@
 import { useState } from "react";
-import type { ParseResult, ParsedInput, SubTask } from "../types";
+import type { ParseResult, ParsedInput, SubTask, UploadedDocument } from "../types";
 import { HistoricalContext } from "./HistoricalContext";
 
 interface Props {
   parseResult: ParseResult;
+  documents: UploadedDocument[];
   onConfirm: (modified: ParsedInput) => void;
   onBack: () => void;
+  onCancel: () => void;
+  onRemoveDocument: (docId: string) => void;
   loading: boolean;
 }
 
-export function ConfirmationPanel({ parseResult, onConfirm, onBack, loading }: Props) {
+export function ConfirmationPanel({ parseResult, documents, onConfirm, onBack, onCancel, onRemoveDocument, loading }: Props) {
   const [target, setTarget] = useState(parseResult.parsed.target);
   const [indication, setIndication] = useState(parseResult.parsed.indication);
   const [synonyms, setSynonyms] = useState(parseResult.parsed.synonyms);
   const [focus, setFocus] = useState(parseResult.parsed.focus);
   const [timeRange, setTimeRange] = useState(parseResult.parsed.time_range);
+  const [userSuggestions, setUserSuggestions] = useState("");
 
   const handleConfirm = () => {
     onConfirm({
@@ -23,6 +27,8 @@ export function ConfirmationPanel({ parseResult, onConfirm, onBack, loading }: P
       synonyms,
       focus,
       time_range: timeRange,
+      document_ids: documents.filter((d) => d.status === "ready").map((d) => d.id),
+      user_suggestions: userSuggestions,
     });
   };
 
@@ -87,6 +93,52 @@ export function ConfirmationPanel({ parseResult, onConfirm, onBack, loading }: P
         </div>
       </div>
 
+      {/* Uploaded Documents */}
+      {documents.length > 0 && (
+        <div
+          style={{
+            background: "#eff6ff",
+            border: "1px solid #bfdbfe",
+            borderRadius: "8px",
+            padding: "16px",
+            marginBottom: "16px",
+          }}
+        >
+          <h3 style={{ margin: "0 0 12px", fontSize: "1em" }}>已上传文档</h3>
+          {documents.map((doc) => (
+            <div
+              key={doc.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "8px 12px",
+                background: "#fff",
+                borderRadius: "4px",
+                marginBottom: "6px",
+                fontSize: "0.9em",
+              }}
+            >
+              <span>
+                {doc.status === "ready" ? "✓" : doc.status === "failed" ? "✗" : "⏳"}{" "}
+                {doc.file_name}
+                <span style={{ color: "#9ca3af", marginLeft: "8px" }}>
+                  ({(doc.file_size / 1024 / 1024).toFixed(1)}MB)
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => onRemoveDocument(doc.id)}
+                disabled={loading}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af" }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Sub-tasks plan */}
       <div
         style={{
@@ -137,7 +189,34 @@ export function ConfirmationPanel({ parseResult, onConfirm, onBack, loading }: P
       {/* Historical context */}
       <HistoricalContext reports={parseResult.knowledge_base_context?.historical_reports || []} />
 
-      {/* Action buttons */}
+      {/* User suggestions */}
+      <div
+        style={{
+          background: "#fefce8",
+          border: "1px solid #fde68a",
+          borderRadius: "8px",
+          padding: "16px",
+          marginBottom: "16px",
+          marginTop: "16px",
+        }}
+      >
+        <h3 style={{ margin: "0 0 8px", fontSize: "1em" }}>其他建议（可选）</h3>
+        <p style={{ color: "#666", fontSize: "0.85em", margin: "0 0 8px" }}>
+          您可以在此输入专业见解或补充信息，这些内容将作为分析的重要参考。
+        </p>
+        <textarea
+          value={userSuggestions}
+          onChange={(e) => setUserSuggestions(e.target.value)}
+          placeholder="例如：请关注该靶点在耐药性方面的最新进展，特别是T790M突变..."
+          rows={4}
+          style={{
+            ...inputStyle,
+            resize: "vertical",
+          }}
+        />
+      </div>
+
+      {/* Action buttons: [确认并运行] [返回修改] [取消] */}
       <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
         <button
           onClick={handleConfirm}
@@ -166,6 +245,20 @@ export function ConfirmationPanel({ parseResult, onConfirm, onBack, loading }: P
           }}
         >
           返回修改
+        </button>
+        <button
+          onClick={onCancel}
+          disabled={loading}
+          style={{
+            padding: "10px 24px",
+            background: "#fff",
+            border: "1px solid #d1d5db",
+            borderRadius: "6px",
+            cursor: "pointer",
+            color: "#dc2626",
+          }}
+        >
+          取消
         </button>
       </div>
     </div>

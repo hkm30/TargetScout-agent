@@ -145,7 +145,7 @@ async def search_reports(query: str, target: str | None = None, top_k: int = 5) 
         ]
     except Exception as e:
         logger.error("Search reports failed: %s", e, exc_info=True)
-        raise
+        return []
 
 
 async def delete_report(report_id: str):
@@ -154,3 +154,153 @@ async def delete_report(report_id: str):
     await asyncio.to_thread(
         client.delete_documents, documents=[{"id": report_id}]
     )
+
+
+# ──────────────────────────────────────────────
+# Documents index (private document chunks)
+# ──────────────────────────────────────────────
+
+def _build_documents_index_fields() -> list:
+    """Build index fields for the private documents index."""
+    return [
+        SimpleField(name="id", type=DT.String, key=True, filterable=True),
+        SimpleField(name="document_id", type=DT.String, filterable=True),
+        SimpleField(name="file_name", type=DT.String, filterable=True),
+        SimpleField(name="target", type=DT.String, filterable=True),
+        SimpleField(name="indication", type=DT.String, filterable=True),
+        SearchableField(name="content", type=DT.String),
+        SimpleField(name="chunk_index", type=DT.Int32, filterable=True, sortable=True),
+        SimpleField(name="page_number", type=DT.Int32, filterable=True),
+        SimpleField(name="source_type", type=DT.String, filterable=True),
+        SimpleField(name="created_at", type=DT.DateTimeOffset, filterable=True, sortable=True),
+        SearchField(
+            name="content_vector",
+            type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
+            searchable=True,
+            vector_search_dimensions=settings.EMBEDDING_DIMENSIONS,
+            vector_search_profile_name="default-profile",
+        ),
+    ]
+
+
+def get_documents_search_client() -> SearchClient:
+    return SearchClient(
+        endpoint=settings.SEARCH_ENDPOINT,
+        index_name=settings.SEARCH_DOCUMENTS_INDEX_NAME,
+        credential=AzureKeyCredential(settings.SEARCH_API_KEY),
+    )
+
+
+def ensure_documents_index():
+    """Create or update the documents search index."""
+    try:
+        index_client = get_index_client()
+        vector_search = VectorSearch(
+            algorithms=[HnswAlgorithmConfiguration(name="default-algo")],
+            profiles=[VectorSearchProfile(name="default-profile", algorithm_configuration_name="default-algo")],
+        )
+        index = SearchIndex(
+            name=settings.SEARCH_DOCUMENTS_INDEX_NAME,
+            fields=_build_documents_index_fields(),
+            vector_search=vector_search,
+        )
+        index_client.create_or_update_index(index)
+    except Exception as e:
+        logger.warning("Failed to create/update documents index: %s", e)
+
+
+async def index_document_chunks(document_id: str, file_name: str, chunks: list[dict], target: str = "", indication: str = ""):
+    """Index document chunks into the documents AI Search index."""
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc).isoformat()
+    docs = []
+    for chunk in chunks:
+        chunk_id = f"{document_id}_{chunk['chunk_index']}"
+        vector = await generate_embedding(chunk["text"])
+        docs.append({
+            "id": chunk_id,
+            "document_id": document_id,
+            "file_name": file_name,
+            "target": target,
+            "indication": indication,
+            "content": chunk["text"],
+            "chunk_index": chunk["chunk_index"],
+            "page_number": chunk.get("page_number", 0),
+            "source_type": "private_document",
+            "created_at": now,
+            "content_vector": vector,
+        })
+
+    client = get_documents_search_client()
+    # Upload in batches of 16
+    for i in range(0, len(docs), 16):
+        batch = docs[i:i + 16]
+        await asyncio.to_thread(client.upload_documents, batch)
+
+
+async def search_documents(query: str, top_k: int = 5) -> list[dict]:
+    """Search private documents by hybrid search."""
+    try:
+        vector = await generate_embedding(query)
+        vector_query = VectorizedQuery(vector=vector, k_nearest_neighbors=top_k, fields="content_vector")
+
+        client = get_documents_search_client()
+        results = await asyncio.to_thread(
+            client.search,
+            search_text=query,
+            vector_queries=[vector_query],
+            top=top_k,
+        )
+
+        return [
+            {
+                "id": r.get("id", ""),
+                "document_id": r.get("document_id", ""),
+                "file_name": r.get("file_name", ""),
+                "target": r.get("target", ""),
+                "indication": r.get("indication", ""),
+                "summary": (r.get("content") or "")[:500],
+                "created_at": r.get("created_at", ""),
+                "score": r.get("@search.score", 0),
+                "source_type": "private_document",
+            }
+            for r in results
+        ]
+    except Exception as e:
+        logger.error("Search documents failed: %s", e, exc_info=True)
+        return []
+
+
+async def delete_document_chunks(document_id: str):
+    """Delete all chunks for a document from the documents index."""
+    client = get_documents_search_client()
+    # Search for all chunks with this document_id
+    sanitized_id = document_id.replace("'", "''")
+    results = await asyncio.to_thread(
+        client.search,
+        search_text="*",
+        filter=f"document_id eq '{sanitized_id}'",
+        top=1000,
+        select=["id"],
+    )
+    chunk_ids = [{"id": r["id"]} for r in results]
+    if chunk_ids:
+        await asyncio.to_thread(client.delete_documents, chunk_ids)
+
+
+async def unified_search(query: str, top_k: int = 5) -> list[dict]:
+    """Search both reports and documents indexes, merge and sort by score."""
+    report_results, doc_results = await asyncio.gather(
+        search_reports(query=query, top_k=top_k),
+        search_documents(query=query, top_k=top_k),
+    )
+
+    # Add source_type to report results
+    for r in report_results:
+        r["source_type"] = "report"
+
+    # Merge and sort by score descending
+    combined = report_results + doc_results
+    combined.sort(key=lambda x: x.get("score", 0), reverse=True)
+    return combined[:top_k]

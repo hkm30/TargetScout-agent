@@ -34,10 +34,7 @@ class Settings:
     COSMOS_CONTAINER: str = os.environ.get("COSMOS_RESULTS_CONTAINER_NAME", os.environ.get("COSMOS_CONTAINER", "reports"))
 
     # MCP Server URLs
-    GOOGLE_SCHOLAR_MCP_URL: str = os.environ.get(
-        "GOOGLE_SCHOLAR_MCP_URL",
-        "https://mcp-google-scholar.blackflower-634b5ce2.southeastasia.azurecontainerapps.io/mcp",
-    )
+    GOOGLE_SCHOLAR_MCP_URL: str = os.environ.get("GOOGLE_SCHOLAR_MCP_URL", "")
 
     # Application Insights
     APPLICATIONINSIGHTS_CONNECTION_STRING: str = os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING", "")
@@ -46,6 +43,17 @@ class Settings:
     STORAGE_ACCOUNT_NAME: str = os.environ.get("STORAGE_ACCOUNT_NAME", "")
     BLOB_REPORTS_CONTAINER: str = os.environ.get("BLOB_REPORTS_CONTAINER", "reports")
     BLOB_SNAPSHOTS_CONTAINER: str = os.environ.get("BLOB_SNAPSHOTS_CONTAINER", "raw-search-snapshots")
+
+    # Azure Document Intelligence
+    DOC_INTELLIGENCE_ENDPOINT: str = os.environ.get("AZURE_DOC_INTELLIGENCE_ENDPOINT", "")
+    DOC_INTELLIGENCE_KEY: str = os.environ.get("AZURE_DOC_INTELLIGENCE_KEY", "")
+
+    # Private documents
+    BLOB_DOCUMENTS_CONTAINER: str = os.environ.get("BLOB_DOCUMENTS_CONTAINER", "private-documents")
+    SEARCH_DOCUMENTS_INDEX_NAME: str = os.environ.get("AZURE_SEARCH_DOCUMENTS_INDEX_NAME", "drug-target-documents")
+    COSMOS_DOCUMENTS_CONTAINER: str = os.environ.get("COSMOS_DOCUMENTS_CONTAINER", "documents")
+    DOC_MAX_FILE_SIZE_MB: int = int(os.environ.get("DOC_MAX_FILE_SIZE_MB", "10"))
+    DOC_MAX_FILE_COUNT: int = int(os.environ.get("DOC_MAX_FILE_COUNT", "5"))
 
     @property
     def EMBEDDING_DIMENSIONS(self) -> int:

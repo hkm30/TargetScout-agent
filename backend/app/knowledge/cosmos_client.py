@@ -7,6 +7,56 @@ from azure.identity import DefaultAzureCredential
 from app.config import settings
 
 
+class CosmosDocumentStore:
+    """Cosmos DB store for private document metadata (replaces in-memory dict)."""
+
+    def __init__(self):
+        client = CosmosClient(settings.COSMOS_ENDPOINT, credential=DefaultAzureCredential())
+        database = client.get_database_client(settings.COSMOS_DATABASE)
+        self.container: ContainerProxy = database.get_container_client(
+            settings.COSMOS_DOCUMENTS_CONTAINER
+        )
+
+    async def save_document(self, doc_meta: dict) -> dict:
+        """Upsert a document metadata record."""
+        return await asyncio.to_thread(self.container.upsert_item, doc_meta)
+
+    async def get_document(self, document_id: str) -> dict | None:
+        """Get a document by ID, or None if not found."""
+        try:
+            return await asyncio.to_thread(
+                self.container.read_item, item=document_id, partition_key=document_id
+            )
+        except Exception:
+            return None
+
+    async def delete_document(self, document_id: str):
+        """Delete a document by ID."""
+        await asyncio.to_thread(
+            self.container.delete_item, item=document_id, partition_key=document_id
+        )
+
+    async def get_documents_by_ids(self, document_ids: list[str]) -> list[dict]:
+        """Fetch multiple documents by ID. Missing documents are silently skipped."""
+        docs = []
+        for did in document_ids:
+            doc = await self.get_document(did)
+            if doc:
+                docs.append(doc)
+        return docs
+
+
+_cosmos_docs: CosmosDocumentStore | None = None
+
+
+def _get_cosmos_docs() -> CosmosDocumentStore:
+    """Get or create the CosmosDocumentStore singleton."""
+    global _cosmos_docs
+    if _cosmos_docs is None:
+        _cosmos_docs = CosmosDocumentStore()
+    return _cosmos_docs
+
+
 class CosmosReportStore:
     def __init__(self):
         # Use AAD auth (DefaultAzureCredential) — Cosmos DB has local key auth disabled

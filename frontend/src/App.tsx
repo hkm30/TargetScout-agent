@@ -7,6 +7,7 @@ import {
   exportWord,
   exportPdf,
   fetchReport,
+  deleteDocument,
 } from "./api";
 import type {
   AssessmentResult,
@@ -15,6 +16,7 @@ import type {
   Page,
   AssessStep,
   PartialResultData,
+  UploadedDocument,
 } from "./types";
 import { Sidebar } from "./components/Sidebar";
 import { SearchForm } from "./components/SearchForm";
@@ -36,6 +38,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [agentProgress, setAgentProgress] = useState<Record<string, string>>({});
   const [partialResults, setPartialResults] = useState<Record<string, PartialResultData>>({});
+  const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
 
   const handleNavigate = (p: Page) => {
     setPage(p);
@@ -50,6 +53,7 @@ export default function App() {
     setError("");
     setAgentProgress({});
     setPartialResults({});
+    setUploadedDocuments([]);
   };
 
   const handleSubmit = async (
@@ -58,7 +62,9 @@ export default function App() {
     synonyms: string,
     focus: string,
     timeRange: string,
+    documents: UploadedDocument[],
   ) => {
+    setUploadedDocuments(documents);
     setLoading(true);
     setError("");
     setResult(null);
@@ -109,6 +115,19 @@ export default function App() {
     setAssessStep("input");
     setParseResult(null);
     setError("");
+  };
+
+  const handleCancel = () => {
+    handleReset();
+  };
+
+  const handleRemoveDocument = async (docId: string) => {
+    try {
+      await deleteDocument(docId);
+    } catch {
+      // Best effort
+    }
+    setUploadedDocuments((prev) => prev.filter((d) => d.id !== docId));
   };
 
   const handleViewReport = async (id: string, target: string) => {
@@ -186,8 +205,11 @@ export default function App() {
             </div>
             <ConfirmationPanel
               parseResult={parseResult}
+              documents={uploadedDocuments}
               onConfirm={handleConfirm}
               onBack={handleBack}
+              onCancel={handleCancel}
+              onRemoveDocument={handleRemoveDocument}
               loading={loading}
             />
           </div>

@@ -210,6 +210,31 @@ def _build_research_prompt(
     return research_prompt
 
 
+def _build_document_context(documents: list[dict], user_suggestions: str = "") -> str:
+    """Build the private document + user suggestions context block for agent prompts."""
+    parts = []
+
+    if documents:
+        parts.append("## 用户提供的私有文档参考资料\n")
+        for doc in documents:
+            parts.append(f"### 文档: {doc.get('file_name', 'unknown')}\n")
+            summary = doc.get("summary", "")
+            abstract = doc.get("abstract", "")
+            if summary:
+                parts.append(f"#### 总结\n{summary}\n")
+            if abstract:
+                parts.append(f"#### 摘要\n{abstract}\n")
+
+    if user_suggestions:
+        parts.append(f"## 用户补充建议\n{user_suggestions}\n")
+
+    if parts:
+        parts.append("请结合以上私有文档和用户建议，与你的网络搜索结果进行综合分析。")
+        parts.append("当你在分析中引用了上述私有文档的内容时，请在对应段落末尾标注来源文件名，格式为 [文档: 文件名]。\n")
+
+    return "\n".join(parts)
+
+
 def _build_decision_prompt(
     target: str,
     indication: str,
@@ -286,6 +311,8 @@ async def run_full_pipeline(
     synonyms: str = "",
     focus: str = "",
     time_range: str = "",
+    document_ids: list[str] | None = None,
+    user_suggestions: str = "",
 ) -> dict:
     """Run the complete assessment pipeline (non-streaming version)."""
     query = f"{target} {indication}".strip()
@@ -302,6 +329,24 @@ async def run_full_pipeline(
 
     # Run 3 research agents in parallel (staggered to avoid 429)
     research_prompt = _build_research_prompt(en_target, en_indication, en_synonyms, en_focus, time_range)
+
+    # Inject private document context and user suggestions
+    doc_context = ""
+    if document_ids:
+        from app.knowledge.cosmos_client import _get_cosmos_docs
+        docs = await _get_cosmos_docs().get_documents_by_ids(document_ids)
+        found_ids = {d["id"] for d in docs}
+        missing = [did for did in document_ids if did not in found_ids]
+        if missing:
+            logger.warning("Documents not found in store (server may have restarted): %s", missing)
+        if not docs and document_ids:
+            logger.error("All %d requested documents are missing — results will lack document context", len(document_ids))
+        doc_context = _build_document_context(docs, user_suggestions)
+    elif user_suggestions:
+        doc_context = _build_document_context([], user_suggestions)
+
+    if doc_context:
+        research_prompt = doc_context + "\n" + research_prompt
 
     async def _staggered_agent(key: str, delay: float):
         if delay > 0:
@@ -329,6 +374,8 @@ async def run_full_pipeline(
 
     # Step 3: Run decision summary agent
     decision_prompt = _build_decision_prompt(target, indication, lit_result, clin_result, comp_result, kb_data)
+    if doc_context:
+        decision_prompt = doc_context + "\n" + decision_prompt
     decision_result = await run_sub_agent(agent_names["decision"], decision_prompt)
 
     # Parse and validate
@@ -348,6 +395,8 @@ async def run_full_pipeline(
     }
     report["target"] = target
     report["indication"] = indication
+    if document_ids:
+        report["document_ids"] = document_ids
 
     # Step 4: Write to knowledge base (background, non-blocking)
     report_id = str(uuid.uuid4())
@@ -371,6 +420,8 @@ async def run_full_pipeline_stream(
     synonyms: str = "",
     focus: str = "",
     time_range: str = "",
+    document_ids: list[str] | None = None,
+    user_suggestions: str = "",
 ) -> AsyncGenerator[dict, None]:
     """Run the pipeline, yielding SSE event dicts as progress occurs."""
     query = f"{target} {indication}".strip()
@@ -389,6 +440,26 @@ async def run_full_pipeline_stream(
 
     # Run 3 research agents in parallel, report completions individually
     research_prompt = _build_research_prompt(en_target, en_indication, en_synonyms, en_focus, time_range)
+
+    # Inject private document context and user suggestions if provided
+    doc_context = ""
+    if document_ids:
+        from app.knowledge.cosmos_client import _get_cosmos_docs
+        docs = await _get_cosmos_docs().get_documents_by_ids(document_ids)
+        found_ids = {d["id"] for d in docs}
+        missing = [did for did in document_ids if did not in found_ids]
+        if missing:
+            logger.warning("Documents not found in store (server may have restarted): %s", missing)
+            yield {"event": "warning", "data": {"message": f"部分文档未找到（服务可能已重启），缺失 {len(missing)} 个文档"}}
+        if not docs and document_ids:
+            logger.error("All %d requested documents are missing — results will lack document context", len(document_ids))
+            yield {"event": "warning", "data": {"message": "所有上传文档均未找到，评估结果将不包含私有文档上下文"}}
+        doc_context = _build_document_context(docs, user_suggestions)
+    elif user_suggestions:
+        doc_context = _build_document_context([], user_suggestions)
+
+    if doc_context:
+        research_prompt = doc_context + "\n" + research_prompt
 
     agent_keys = ["literature", "clinical_trials", "competition"]
     stagger_delays = {"literature": 0, "clinical_trials": 2, "competition": 4}
@@ -433,6 +504,8 @@ async def run_full_pipeline_stream(
     # Step 3: Decision agent
     yield {"event": "status", "data": {"stage": "decision", "status": "started"}}
     decision_prompt = _build_decision_prompt(target, indication, lit_result, clin_result, comp_result, kb_data)
+    if doc_context:
+        decision_prompt = doc_context + "\n" + decision_prompt
     decision_result = await run_sub_agent(agent_names["decision"], decision_prompt)
 
     report = _parse_and_validate(decision_result)
@@ -453,6 +526,8 @@ async def run_full_pipeline_stream(
     }
     report["target"] = target
     report["indication"] = indication
+    if document_ids:
+        report["document_ids"] = document_ids
 
     # Step 4: KB write (background)
     report_id = str(uuid.uuid4())

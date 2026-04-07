@@ -55,6 +55,7 @@ async def write_to_knowledge_base(report: dict, raw_outputs: dict, report_id: st
         "literature_output": raw_outputs.get("literature", {}),
         "clinical_trials_output": raw_outputs.get("clinical_trials", {}),
         "competition_output": raw_outputs.get("competition", {}),
+        "document_ids": report.get("document_ids", []),
     }
     cosmos = _get_cosmos()
     await cosmos.save_report(cosmos_doc)

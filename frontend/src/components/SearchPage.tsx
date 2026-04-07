@@ -75,12 +75,27 @@ export function SearchPage({ onViewReport }: Props) {
         <div
           key={item.id}
           className="card card-clickable"
-          onClick={() => onViewReport(item.id, item.target)}
+          onClick={() => item.source_type !== "private_document" ? onViewReport(item.id, item.target) : undefined}
+          style={{ cursor: item.source_type === "private_document" ? "default" : "pointer" }}
         >
           <div className="report-card">
             <div className="report-card__body">
-              <div className="report-card__title">
-                {item.target}{item.indication ? ` - ${item.indication}` : ""}
+              <div className="report-card__title" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                {item.source_type === "private_document" ? item.file_name || "私有文档" : (
+                  <>{item.target}{item.indication ? ` - ${item.indication}` : ""}</>
+                )}
+                <span
+                  style={{
+                    padding: "2px 8px",
+                    borderRadius: "4px",
+                    fontSize: "0.7em",
+                    fontWeight: 500,
+                    background: item.source_type === "private_document" ? "#dbeafe" : "#f0fdf4",
+                    color: item.source_type === "private_document" ? "#1d4ed8" : "#166534",
+                  }}
+                >
+                  {item.source_type === "private_document" ? "私有文档" : "历史报告"}
+                </span>
               </div>
               <div className="report-card__summary">{item.summary || "暂无摘要"}</div>
               <div className="report-card__meta">
