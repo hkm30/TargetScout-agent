@@ -34,10 +34,7 @@ class Settings:
     COSMOS_CONTAINER: str = os.environ.get("COSMOS_RESULTS_CONTAINER_NAME", os.environ.get("COSMOS_CONTAINER", "reports"))
 
     # MCP Server URLs
-    GOOGLE_SCHOLAR_MCP_URL: str = os.environ.get(
-        "GOOGLE_SCHOLAR_MCP_URL",
-        "https://mcp-google-scholar.blackflower-634b5ce2.southeastasia.azurecontainerapps.io/mcp",
-    )
+    GOOGLE_SCHOLAR_MCP_URL: str = os.environ.get("GOOGLE_SCHOLAR_MCP_URL", "")
 
     # Application Insights
     APPLICATIONINSIGHTS_CONNECTION_STRING: str = os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING", "")

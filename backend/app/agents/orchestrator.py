@@ -334,6 +334,11 @@ async def run_full_pipeline(
     if document_ids:
         from app.documents.router import _document_store
         docs = [_document_store[did] for did in document_ids if did in _document_store]
+        missing = [did for did in document_ids if did not in _document_store]
+        if missing:
+            logger.warning("Documents not found in store (server may have restarted): %s", missing)
+        if not docs and document_ids:
+            logger.error("All %d requested documents are missing — results will lack document context", len(document_ids))
         doc_context = _build_document_context(docs, user_suggestions)
     elif user_suggestions:
         doc_context = _build_document_context([], user_suggestions)
@@ -388,6 +393,8 @@ async def run_full_pipeline(
     }
     report["target"] = target
     report["indication"] = indication
+    if document_ids:
+        report["document_ids"] = document_ids
 
     # Step 4: Write to knowledge base (background, non-blocking)
     report_id = str(uuid.uuid4())
@@ -437,6 +444,13 @@ async def run_full_pipeline_stream(
     if document_ids:
         from app.documents.router import _document_store
         docs = [_document_store[did] for did in document_ids if did in _document_store]
+        missing = [did for did in document_ids if did not in _document_store]
+        if missing:
+            logger.warning("Documents not found in store (server may have restarted): %s", missing)
+            yield {"event": "warning", "data": {"message": f"部分文档未找到（服务可能已重启），缺失 {len(missing)} 个文档"}}
+        if not docs and document_ids:
+            logger.error("All %d requested documents are missing — results will lack document context", len(document_ids))
+            yield {"event": "warning", "data": {"message": "所有上传文档均未找到，评估结果将不包含私有文档上下文"}}
         doc_context = _build_document_context(docs, user_suggestions)
     elif user_suggestions:
         doc_context = _build_document_context([], user_suggestions)
@@ -509,6 +523,8 @@ async def run_full_pipeline_stream(
     }
     report["target"] = target
     report["indication"] = indication
+    if document_ids:
+        report["document_ids"] = document_ids
 
     # Step 4: KB write (background)
     report_id = str(uuid.uuid4())

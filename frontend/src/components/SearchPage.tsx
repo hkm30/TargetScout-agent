@@ -81,7 +81,7 @@ export function SearchPage({ onViewReport }: Props) {
           <div className="report-card">
             <div className="report-card__body">
               <div className="report-card__title" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                {item.source_type === "private_document" ? (item as any).file_name || "私有文档" : (
+                {item.source_type === "private_document" ? item.file_name || "私有文档" : (
                   <>{item.target}{item.indication ? ` - ${item.indication}` : ""}</>
                 )}
                 <span

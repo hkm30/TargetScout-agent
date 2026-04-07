@@ -31,8 +31,14 @@ export function SearchForm({ onSubmit, loading }: Props) {
       return;
     }
 
-    // Validate sizes
+    // Validate extensions and sizes
+    const allowedExts = [".pdf", ".docx", ".txt", ".md"];
     for (const f of files) {
+      const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
+      if (!allowedExts.includes(ext)) {
+        alert(`文件 ${f.name} 格式不支持，仅支持 PDF/Word/TXT/Markdown`);
+        return;
+      }
       if (f.size > MAX_SIZE_MB * 1024 * 1024) {
         alert(`文件 ${f.name} 超过 ${MAX_SIZE_MB}MB 限制`);
         return;

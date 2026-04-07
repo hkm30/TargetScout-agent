@@ -145,7 +145,7 @@ async def search_reports(query: str, target: str | None = None, top_k: int = 5) 
         ]
     except Exception as e:
         logger.error("Search reports failed: %s", e, exc_info=True)
-        raise
+        return []
 
 
 async def delete_report(report_id: str):
@@ -276,10 +276,11 @@ async def delete_document_chunks(document_id: str):
     """Delete all chunks for a document from the documents index."""
     client = get_documents_search_client()
     # Search for all chunks with this document_id
+    sanitized_id = document_id.replace("'", "''")
     results = await asyncio.to_thread(
         client.search,
         search_text="*",
-        filter=f"document_id eq '{document_id}'",
+        filter=f"document_id eq '{sanitized_id}'",
         top=1000,
         select=["id"],
     )

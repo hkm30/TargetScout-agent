@@ -56,7 +56,17 @@ class BlobReportStorage:
 class BlobDocumentStorage:
     """Blob storage for private uploaded documents."""
 
+    _instance: "BlobDocumentStorage | None" = None
+
+    def __new__(cls) -> "BlobDocumentStorage":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
     def __init__(self):
+        if self._initialized:
+            return
         account_url = settings.BLOB_ACCOUNT_URL
         if not account_url:
             raise ValueError("STORAGE_ACCOUNT_NAME must be set for blob storage")
@@ -67,6 +77,7 @@ class BlobDocumentStorage:
             self.container.get_container_properties()
         except Exception:
             self.container.create_container()
+        self._initialized = True
 
     def upload_document(self, document_id: str, filename: str, content: bytes, content_type: str = "application/octet-stream") -> str:
         """Upload a document file and return its URL."""

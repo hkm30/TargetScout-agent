@@ -29,6 +29,8 @@ def validate_file(filename: str, size_bytes: int) -> str | None:
     ext = Path(filename).suffix.lower()
     if ext not in SUPPORTED_EXTENSIONS:
         return f"Unsupported file type: {ext}. Supported: {', '.join(SUPPORTED_EXTENSIONS)}"
+    if size_bytes == 0:
+        return "File is empty"
     max_bytes = settings.DOC_MAX_FILE_SIZE_MB * 1024 * 1024
     if size_bytes > max_bytes:
         return f"File too large: {size_bytes / 1024 / 1024:.1f}MB exceeds {settings.DOC_MAX_FILE_SIZE_MB}MB limit"

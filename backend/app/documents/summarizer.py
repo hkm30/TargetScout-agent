@@ -28,11 +28,19 @@ async def generate_summaries(text: str, filename: str = "") -> dict:
     - abstract (摘要): 3000-5000 tokens, detailed extraction
     - summary (总结): 1000-2000 tokens, concise overview
     """
-    # Truncate input if too long to fit in context (keep first ~12000 tokens worth of chars)
-    max_input_chars = 48000  # ~12000 tokens
-    truncated = text[:max_input_chars]
-    if len(text) > max_input_chars:
-        truncated += "\n\n[... 文档内容已截断 ...]"
+    # Truncate input if too long to fit in context
+    from app.documents.chunker import count_tokens
+    max_input_tokens = 12000
+    token_count = count_tokens(text)
+    if token_count > max_input_tokens:
+        # Binary-search-style truncation: start from a conservative char estimate
+        # For mixed CJK/Latin text, ~2 chars/token is a safe lower bound
+        end = min(len(text), max_input_tokens * 4)
+        while count_tokens(text[:end]) > max_input_tokens:
+            end = int(end * 0.8)
+        truncated = text[:end] + "\n\n[... 文档内容已截断 ...]"
+    else:
+        truncated = text
 
     prompt = SUMMARY_PROMPT.format(content=truncated)
 

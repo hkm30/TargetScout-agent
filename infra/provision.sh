@@ -199,18 +199,28 @@ echo "    - Azure AI Developer (on AIServices resource and project)"
 echo "    - Cognitive Services Contributor (on AIServices resource and project)"
 echo "    - Cognitive Services User (on AIServices resource and project)"
 
-# === Output all configuration ===
+# === Output configuration to .env file (secrets not printed to stdout) ===
+ENV_FILE="$(dirname "$0")/../backend/.env.provisioned"
+cat > "$ENV_FILE" <<EOF
+PROJECT_ENDPOINT=$PROJECT_ENDPOINT
+SEARCH_ENDPOINT=$SEARCH_ENDPOINT
+SEARCH_API_KEY=$SEARCH_KEY
+COSMOS_ENDPOINT=$COSMOS_ENDPOINT
+COSMOS_KEY=$COSMOS_KEY
+BLOB_CONNECTION_STRING=$BLOB_CONNECTION
+APPLICATIONINSIGHTS_CONNECTION_STRING=$APPINSIGHTS_KEY
+EOF
+chmod 600 "$ENV_FILE"
+
 echo ""
 echo "=== Resource Provisioning Complete ==="
-echo "PROJECT_ENDPOINT=$PROJECT_ENDPOINT"
-echo "SEARCH_ENDPOINT=$SEARCH_ENDPOINT"
-echo "SEARCH_API_KEY=$SEARCH_KEY"
-echo "COSMOS_ENDPOINT=$COSMOS_ENDPOINT"
-echo "COSMOS_KEY=$COSMOS_KEY"
-echo "BLOB_CONNECTION_STRING=$BLOB_CONNECTION"
-echo "APPLICATIONINSIGHTS_CONNECTION_STRING=$APPINSIGHTS_KEY"
+echo "Secrets written to: $ENV_FILE (chmod 600)"
+echo "Non-secret endpoints:"
+echo "  PROJECT_ENDPOINT=$PROJECT_ENDPOINT"
+echo "  SEARCH_ENDPOINT=$SEARCH_ENDPOINT"
+echo "  COSMOS_ENDPOINT=$COSMOS_ENDPOINT"
 echo ""
 echo ">>> Next steps:"
 echo "    1. Deploy GPT-5.4 + text-embedding-3-large in AI Foundry portal"
-echo "    2. Copy the above variables into .env or Container App secrets"
+echo "    2. Copy secrets from $ENV_FILE into .env or Container App secrets"
 echo "    3. Run infra/deploy.sh to build and deploy containers"
