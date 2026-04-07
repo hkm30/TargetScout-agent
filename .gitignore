@@ -9,3 +9,6 @@ dist/
 .DS_Store
 .claude/
 .superpowers/
+# CJK fonts — downloaded at build time
+backend/app/export/fonts/*.ttf
+backend/app/export/fonts/*.otf

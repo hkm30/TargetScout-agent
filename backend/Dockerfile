@@ -7,6 +7,11 @@ COPY app/ app/
 
 RUN pip install --no-cache-dir .
 
+# Download CJK fonts for PDF export (Chinese text rendering)
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+    bash app/export/fonts/download_fonts.sh && \
+    apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+
 ARG BUILD_TAG=dev
 ARG BUILD_TIME=""
 ENV BUILD_TAG=${BUILD_TAG}
