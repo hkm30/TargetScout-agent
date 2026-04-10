@@ -116,6 +116,8 @@ async def test_extract_text_docx_calls_doc_intelligence(mock_get_client):
     result = await extract_text("study.docx", b"fake-docx-bytes")
 
     mock_client.begin_analyze_document.assert_called_once()
+    call_args = mock_client.begin_analyze_document.call_args
+    assert call_args[0][0] == "prebuilt-layout"
     assert result["text"] == "Word document text."
     assert result["page_count"] == 1
     assert result["paragraphs"] == []
