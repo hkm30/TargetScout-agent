@@ -83,6 +83,13 @@ az cosmosdb sql container create \
   --name "reports" \
   --partition-key-path "/target"
 
+az cosmosdb sql container create \
+  --account-name "${PROJECT_PREFIX}-cosmos" \
+  --resource-group "$RESOURCE_GROUP" \
+  --database-name "drugtargetdb" \
+  --name "documents" \
+  --partition-key-path "/id"
+
 COSMOS_ENDPOINT="https://${PROJECT_PREFIX}-cosmos.documents.azure.com:443/"
 COSMOS_KEY=$(az cosmosdb keys list \
   --name "${PROJECT_PREFIX}-cosmos" \
@@ -102,6 +109,10 @@ az storage container create \
 
 az storage container create \
   --name "snapshots" \
+  --account-name "${PROJECT_PREFIX}storage"
+
+az storage container create \
+  --name "private-documents" \
   --account-name "${PROJECT_PREFIX}storage"
 
 BLOB_CONNECTION=$(az storage account show-connection-string \

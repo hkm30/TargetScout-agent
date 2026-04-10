@@ -46,7 +46,17 @@ export default function App() {
     setError("");
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    // Clean up uploaded documents from backend (best effort)
+    for (const doc of uploadedDocuments) {
+      if (doc.id) {
+        try {
+          await deleteDocument(doc.id);
+        } catch {
+          // Best effort
+        }
+      }
+    }
     setPage("assess");
     setAssessStep("input");
     setResult(null);

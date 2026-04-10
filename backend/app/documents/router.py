@@ -86,6 +86,11 @@ async def upload_documents(files: list[UploadFile] = File(...)):
             })
         except Exception as e:
             logger.error("Failed to process document %s: %s", filename, e, exc_info=True)
+            # Clean up orphaned blob (best effort)
+            try:
+                await asyncio.to_thread(blob.delete_document, document_id, filename)
+            except Exception:
+                logger.warning("Failed to clean up blob for %s", filename)
             results.append({"file_name": filename, "status": "failed", "error": str(e)})
 
     return {"documents": results}
