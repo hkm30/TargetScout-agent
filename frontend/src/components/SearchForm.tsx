@@ -77,7 +77,8 @@ export function SearchForm({ onSubmit, loading }: Props) {
   };
 
   const handleRemove = async (docId: string) => {
-    if (docId) {
+    const doc = documents.find((d) => d.id === docId);
+    if (docId && doc?.status !== "duplicate") {
       try {
         await deleteDocument(docId);
       } catch {
@@ -97,7 +98,7 @@ export function SearchForm({ onSubmit, loading }: Props) {
       onSubmit={(e) => {
         e.preventDefault();
         if (target.trim())
-          onSubmit(target.trim(), indication.trim(), synonyms.trim(), focus.trim(), timeRange, documents.filter((d) => d.status === "ready"), userSuggestions.trim());
+          onSubmit(target.trim(), indication.trim(), synonyms.trim(), focus.trim(), timeRange, documents.filter((d) => d.status === "ready" || d.status === "duplicate" || d.status === "pending"), userSuggestions.trim());
       }}
       style={{ display: "flex", flexDirection: "column", gap: "12px", maxWidth: "500px" }}
     >
@@ -212,20 +213,24 @@ export function SearchForm({ onSubmit, loading }: Props) {
                   alignItems: "center",
                   justifyContent: "space-between",
                   padding: "6px 10px",
-                  background: doc.status === "failed" ? "#fef2f2" : "#f0fdf4",
+                  background: doc.status === "failed" ? "#fef2f2" : doc.status === "duplicate" ? "#fefce8" : "#f0fdf4",
                   borderRadius: "4px",
                   fontSize: "0.85em",
                 }}
               >
                 <span>
                   {doc.status === "ready" && "✓ "}
+                  {doc.status === "pending" && "✓ "}
+                  {doc.status === "duplicate" && "✓ "}
                   {doc.status === "uploading" && "⏳ "}
                   {doc.status === "failed" && "✗ "}
                   {doc.file_name}
                   <span style={{ color: "#9ca3af", marginLeft: "8px" }}>
                     ({(doc.file_size / 1024 / 1024).toFixed(1)}MB)
                   </span>
-                  {doc.status === "uploading" && <span style={{ color: "#6b7280", marginLeft: "8px" }}>上传解析中...</span>}
+                  {doc.status === "uploading" && <span style={{ color: "#6b7280", marginLeft: "8px" }}>上传中...</span>}
+                  {doc.status === "pending" && <span style={{ color: "#16a34a", marginLeft: "8px" }}>已上传</span>}
+                  {doc.status === "duplicate" && <span style={{ color: "#ca8a04", marginLeft: "8px" }}>{doc.message || "文件已经上传过"}</span>}
                   {doc.status === "failed" && <span style={{ color: "#dc2626", marginLeft: "8px" }}>{doc.error || "失败"}</span>}
                 </span>
                 {doc.status !== "uploading" && (

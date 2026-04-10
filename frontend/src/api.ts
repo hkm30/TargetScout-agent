@@ -42,6 +42,7 @@ export async function confirmAssessmentSSE(
   parsed: ParsedInput,
   onEvent: (event: SSEEvent) => void,
 ): Promise<AssessmentResult> {
+
   const resp = await fetch(`${API_BASE}/assess/confirm`, {
     method: "POST",
     headers: { ...getHeaders(), "Content-Type": "application/json" },

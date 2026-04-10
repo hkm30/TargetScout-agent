@@ -92,13 +92,18 @@ Container Apps 通过 VNet 集成 + Private Endpoint 访问 Cosmos DB，Cosmos D
          ↓
    Orchestrator Agent (Foundry Agent Service, GPT-5.4)
          ↓
-   ① 查 Azure AI Search 知识库（历史情报）
-         ↓
    用户确认（Human-in-the-loop）
+         ↓
+   ┌── 并行 ──┐
+   ↓          ↓
+ ① 知识库   ② 文档处理
+   检索     （Blob→提取→摘要→分块索引）
+   └────┬─────┘
          ↓
    ┌─────────┼──────────────┐
    ↓         ↓              ↓
 文献 Agent  临床 Agent   竞争 Agent
+（含私有文档上下文）
    ↓         ↓              ↓
 PubMed    ClinicalTrials   Bing Search
 Bing       .gov API        PubMed
@@ -133,9 +138,12 @@ Endpoint)  索引)
 
 ```
 1. 解析用户输入（靶点 + 适应症）
-2. 查知识库：调用 search_knowledge_base 检索历史情报
-3. 用户确认：返回解析结果和子任务规划，等待用户确认（Human-in-the-loop）
+2. 用户确认：返回解析结果和子任务规划，等待用户确认（Human-in-the-loop）
+3. 并行执行（asyncio.gather）：
+   a. 知识库检索：调用 search_knowledge_base 检索历史情报
+   b. 文档处理（如有上传）：Blob 上传 → 文本提取 → LLM 摘要 → 分块索引
 4. 并行调用：文献研究 Agent / 临床试验情报 Agent / 竞争与情报 Agent
+   （私有文档摘要 + 用户建议注入 Agent prompt）
 5. 决策推理：将 3 个 Agent 输出 + 知识库历史情报 → 传给决策总结 Agent
 6. 决策总结 Agent 返回固定结构结论
 7. 写回知识库：调用 write_to_knowledge_base 存储本次结果
@@ -457,6 +465,7 @@ Azure AI Search 混合检索（向量相似 + 关键词匹配）
 | Azure AI Search | 知识库检索层（向量 + 全文混合） | Southeast Asia |
 | Azure Cosmos DB for NoSQL | 结构化存储（通过 Private Endpoint 访问，公网禁用） | Southeast Asia |
 | Azure Blob Storage | 文件存储 + 报告导出 | Southeast Asia |
+| Azure Document Intelligence (S0) | PDF/Word 文档解析（prebuilt-read），Managed Identity 认证 | Southeast Asia |
 | Azure Container Apps | 前后端部署（VNet 集成，drugtarget-env-v2） | Southeast Asia |
 | Azure Container Registry | 镜像管理 | Southeast Asia |
 | Azure Application Insights | 监控 + 日志 | Southeast Asia |
@@ -512,6 +521,16 @@ Azure AI Search 混合检索（向量相似 + 关键词匹配）
 - 迁移 Backend / Frontend 到新 VNet 环境
 - 分配 Managed Identity RBAC 角色（Cosmos DB + AI Foundry）
 - Cosmos DB 公网访问已禁用，所有数据面流量通过私有网络
+
+### 第四阶段：私有文档上传与分析（已完成 2026-04-10）
+
+- 支持上传最多 5 个文件（PDF/Word/TXT/MD），单文件 ≤ 10MB
+- 上传即时返回（~1s），仅验证 + 存内存，无 Azure 服务调用
+- 确认运行时文档处理与知识库检索并行：Blob 上传 → Document Intelligence 提取 → LLM 摘要 → 分块索引
+- 基于 SHA-256 内容哈希的文件去重（检查内存 pending + Cosmos 已处理）
+- 删除时全链路清理（内存 + Cosmos + Blob + AI Search），即使 Cosmos 记录已不存在也会清理 AI Search 残留索引
+- RunningView 中"知识库检索"和"文档解析"以并排卡片形式展示，直观体现并行执行
+- Azure Document Intelligence 使用 Managed Identity 认证（Cognitive Services User RBAC）
 
 ## 9. 非功能需求
 

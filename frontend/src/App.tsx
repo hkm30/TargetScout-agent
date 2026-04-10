@@ -47,9 +47,9 @@ export default function App() {
   };
 
   const handleReset = async () => {
-    // Clean up uploaded documents from backend (best effort)
+    // Clean up uploaded documents from backend (best effort, skip duplicates)
     for (const doc of uploadedDocuments) {
-      if (doc.id) {
+      if (doc.id && doc.status !== "duplicate") {
         try {
           await deleteDocument(doc.id);
         } catch {
@@ -136,10 +136,13 @@ export default function App() {
   };
 
   const handleRemoveDocument = async (docId: string) => {
-    try {
-      await deleteDocument(docId);
-    } catch {
-      // Best effort
+    const doc = uploadedDocuments.find((d) => d.id === docId);
+    if (doc?.status !== "duplicate") {
+      try {
+        await deleteDocument(docId);
+      } catch {
+        // Best effort
+      }
     }
     setUploadedDocuments((prev) => prev.filter((d) => d.id !== docId));
   };

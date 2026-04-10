@@ -120,6 +120,20 @@ BLOB_CONNECTION=$(az storage account show-connection-string \
   --resource-group "$RESOURCE_GROUP" \
   --query connectionString -o tsv)
 
+# === Azure Document Intelligence (Southeast Asia) ===
+az cognitiveservices account create \
+  --name "${PROJECT_PREFIX}-docintel" \
+  --resource-group "$RESOURCE_GROUP" \
+  --location "$OTHER_REGION" \
+  --kind FormRecognizer \
+  --sku S0
+
+DOC_INTEL_ENDPOINT="https://${PROJECT_PREFIX}-docintel.cognitiveservices.azure.com/"
+DOC_INTEL_KEY=$(az cognitiveservices account keys list \
+  --name "${PROJECT_PREFIX}-docintel" \
+  --resource-group "$RESOURCE_GROUP" \
+  --query key1 -o tsv)
+
 # === Container Registry (Southeast Asia) ===
 az acr create \
   --name "${PROJECT_PREFIX}acr" \
@@ -220,6 +234,8 @@ COSMOS_ENDPOINT=$COSMOS_ENDPOINT
 COSMOS_KEY=$COSMOS_KEY
 BLOB_CONNECTION_STRING=$BLOB_CONNECTION
 APPLICATIONINSIGHTS_CONNECTION_STRING=$APPINSIGHTS_KEY
+AZURE_DOC_INTELLIGENCE_ENDPOINT=$DOC_INTEL_ENDPOINT
+AZURE_DOC_INTELLIGENCE_KEY=$DOC_INTEL_KEY
 EOF
 chmod 600 "$ENV_FILE"
 

@@ -342,6 +342,60 @@ body {
   font-size: 13px;
 }
 
+.parallel-prep {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0 10px;
+}
+
+.prep-card {
+  flex: 1;
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+}
+
+.prep-card--done {
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+}
+
+.prep-card--running {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+}
+
+.prep-card--waiting {
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+}
+
+.prep-card__progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #DBEAFE;
+}
+
+.prep-card__progress-fill {
+  height: 100%;
+  width: 60%;
+  background: #3B82F6;
+  border-radius: 0 2px 2px 0;
+  animation: prep-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes prep-pulse {
+  0%, 100% { width: 30%; }
+  50% { width: 80%; }
+}
+
 .parallel-agents {
   display: flex;
   gap: 8px;
