@@ -127,11 +127,21 @@ async def extract_text(filename: str, content: bytes) -> dict:
     figures = []
     if result.figures:
         # Get result_id for figure image retrieval
-        result_id = getattr(poller, "result_id", None)
+        result_id = None
+        # 1. Try poller.details which contains operation_id (= result_id)
+        try:
+            details = poller.details
+            if callable(details):
+                details = details()
+            if isinstance(details, dict):
+                result_id = details.get("operation_id")
+        except Exception:
+            pass
+        # 2. Fallback: parse from continuation_token (which is a method, not property)
         if not result_id:
-            # Parse from continuation_token as fallback
             try:
-                token = poller.continuation_token
+                ct = poller.continuation_token
+                token = ct() if callable(ct) else ct
                 if token and "/analyzeResults/" in token:
                     result_id = token.split("/analyzeResults/")[-1].split("?")[0].split("/")[0]
             except Exception:

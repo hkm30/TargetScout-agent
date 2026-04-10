@@ -155,7 +155,7 @@ async def test_extract_text_pdf_extracts_figures(mock_get_client, mock_fetch_ima
 
     mock_poller = MagicMock()
     mock_poller.result.return_value = mock_result
-    mock_poller.result_id = "test-result-id"
+    mock_poller.details = {"operation_id": "test-result-id"}
 
     mock_client = MagicMock()
     mock_client.begin_analyze_document.return_value = mock_poller
