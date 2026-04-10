@@ -19,6 +19,7 @@ def _mock_all_deps():
         "index": patch("app.documents.router.index_document_chunks", new_callable=AsyncMock),
         "delete_chunks": patch("app.documents.router.delete_document_chunks", new_callable=AsyncMock),
         "cosmos": patch("app.documents.router._get_cosmos_docs"),
+        "describe_figures": patch("app.documents.router.describe_all_figures", new_callable=AsyncMock),
     }
 
 
@@ -262,3 +263,83 @@ async def test_upload_mixed_valid_and_invalid():
         statuses = {d["file_name"]: d["status"] for d in docs}
         assert statuses["good.txt"] == "ready"
         assert statuses["bad.exe"] == "failed"
+
+
+@pytest.mark.asyncio
+async def test_process_pending_document_with_figures():
+    """process_pending_document should run vision, merge descriptions, and create figure chunks."""
+    from app.documents.router import process_pending_document, _pending_files
+
+    doc_id = "test-fig-doc"
+    _pending_files[doc_id] = {
+        "content": b"fake-pdf-content",
+        "file_name": "study.pdf",
+        "content_hash": "abc123",
+    }
+
+    patches = _mock_all_deps()
+    with patches["blob"] as mock_blob_cls, \
+         patches["extract"] as mock_extract, \
+         patches["summarize"] as mock_summarize, \
+         patches["index"] as mock_index, \
+         patches["cosmos"] as mock_get_cosmos, \
+         patches["describe_figures"] as mock_describe:
+
+        mock_blob_instance = MagicMock()
+        mock_blob_instance.upload_document.return_value = "https://blob.test/study.pdf"
+        mock_blob_cls.return_value = mock_blob_instance
+
+        mock_cosmos = _make_cosmos_mock()
+        mock_get_cosmos.return_value = mock_cosmos
+
+        mock_extract.return_value = {
+            "text": "Introduction text.\n\nResults show improvement.",
+            "page_count": 2,
+            "paragraphs": ["Introduction text.", "Results show improvement."],
+            "figures": [
+                {
+                    "id": "1.0",
+                    "page_number": 1,
+                    "caption": "Figure 1: IC50 values",
+                    "image_bytes": b"fake-png",
+                    "span_offset": 50,
+                },
+            ],
+        }
+
+        mock_describe.return_value = [
+            {
+                "id": "1.0",
+                "page_number": 1,
+                "caption": "Figure 1: IC50 values",
+                "image_bytes": b"fake-png",
+                "span_offset": 50,
+                "description": "这是一张柱状图，展示了不同化合物的IC50值分布。",
+            },
+        ]
+
+        mock_summarize.return_value = {"abstract": "Detailed abstract.", "summary": "Brief summary."}
+
+        result = await process_pending_document(doc_id)
+
+        # Vision was called with figures and paragraphs
+        mock_describe.assert_called_once()
+        call_args = mock_describe.call_args
+        assert len(call_args[0][0]) == 1
+        assert call_args[0][0][0]["id"] == "1.0"
+
+        # Summarizer received enriched text (with figure description merged)
+        summarize_call = mock_summarize.call_args
+        enriched_text = summarize_call[0][0]
+        assert "[图片:" in enriched_text
+        assert "IC50" in enriched_text
+
+        # Index was called with figure chunks included
+        index_call = mock_index.call_args
+        chunks = index_call[0][2]
+        figure_chunks = [c for c in chunks if c.get("source_type") == "figure"]
+        assert len(figure_chunks) == 1
+        assert "IC50" in figure_chunks[0]["text"]
+
+        assert result["status"] == "ready"
+        assert result["summary"] == "Brief summary."
