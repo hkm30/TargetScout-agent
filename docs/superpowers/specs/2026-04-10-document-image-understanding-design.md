@@ -9,7 +9,7 @@ Enhance the document parsing pipeline to extract and understand images (figures,
 **Document Intelligence Layout + GPT Vision** (two-stage pipeline):
 
 1. **Detection & Cropping**: Switch from `prebuilt-read` to `prebuilt-layout` with `output=figures` to detect figures and obtain cropped images via the Document Intelligence API.
-2. **Visual Understanding**: Send each cropped figure image to GPT-4o/GPT-5.4 multimodal API to generate structured Chinese descriptions.
+2. **Visual Understanding**: Send each cropped figure image to GPT-5.4 multimodal API to generate structured Chinese descriptions.
 3. **Dual Integration**: Merge descriptions into the text flow (for summarization) AND index them as separate chunks (for precise retrieval).
 
 ## Detailed Design
@@ -48,7 +48,7 @@ Enhance the document parsing pipeline to extract and understand images (figures,
 
 ### 2. Vision Understanding Layer (`documents/vision.py`) — NEW FILE
 
-New module responsible for calling GPT Vision to understand figure images.
+New module responsible for calling GPT-5.4 multimodal capability to understand figure images.
 
 ```python
 async def describe_figure(
@@ -176,13 +176,7 @@ Each figure chunk dict has `{text, chunk_index, token_count, source_type, page_n
 
 ### 6. Configuration (`config.py`)
 
-New optional setting:
-
-```python
-VISION_MODEL_DEPLOYMENT: str = os.environ.get("VISION_MODEL_DEPLOYMENT", "")
-```
-
-Falls back to `MODEL_DEPLOYMENT` if not set. This allows using a different model for vision tasks (e.g., `gpt-4o` for vision while using `gpt-54` for text).
+No new config needed. Vision calls use the existing `MODEL_DEPLOYMENT` setting (`gpt-54` / GPT-5.4), which supports multimodal input natively.
 
 ## Files Changed
 
@@ -192,8 +186,7 @@ Falls back to `MODEL_DEPLOYMENT` if not set. This allows using a different model
 | `documents/vision.py` | **New** | GPT Vision integration for figure understanding |
 | `documents/router.py` | Modify | Add vision + merge steps to `process_pending_document()` |
 | `documents/chunker.py` | Modify | Support `figure_chunks` parameter |
-| `config.py` | Modify | Add `VISION_MODEL_DEPLOYMENT` |
-| `backend/.env.example` | Modify | Add `VISION_MODEL_DEPLOYMENT` |
+| `config.py` | No change | Uses existing `MODEL_DEPLOYMENT` (GPT-5.4) |
 | `tests/test_parser.py` | **New/Modify** | Tests for layout model + figure extraction |
 | `tests/test_vision.py` | **New** | Tests for vision description generation |
 
