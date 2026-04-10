@@ -186,6 +186,8 @@ async def process_pending_document(document_id: str) -> dict:
 
     # 3. Understand figures via GPT-5.4 Vision
     described_figures = await describe_all_figures(figures, paragraphs) if figures else []
+    for fig in described_figures:
+        fig.pop("image_bytes", None)
 
     # 4. Merge figure descriptions into text
     enriched_text, enriched_paragraphs = _merge_figure_descriptions(
