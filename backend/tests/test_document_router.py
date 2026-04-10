@@ -35,28 +35,13 @@ def _make_cosmos_mock():
 
 @pytest.mark.asyncio
 async def test_upload_success():
+    """Upload validates and holds file in memory, returning pending status."""
     patches = _mock_all_deps()
-    with patches["blob"] as mock_blob_cls, \
-         patches["extract"] as mock_extract, \
-         patches["summarize"] as mock_summarize, \
-         patches["index"] as mock_index, \
+    with patches["blob"], patches["extract"], patches["summarize"], patches["index"], \
          patches["cosmos"] as mock_get_cosmos:
-        mock_blob_instance = MagicMock()
-        mock_blob_instance.upload_document.return_value = "https://blob.test/doc.txt"
-        mock_blob_cls.return_value = mock_blob_instance
-
         mock_cosmos = _make_cosmos_mock()
+        mock_cosmos.find_by_content_hash = AsyncMock(return_value=None)
         mock_get_cosmos.return_value = mock_cosmos
-
-        mock_extract.return_value = {
-            "text": "Hello world content.",
-            "page_count": 1,
-            "paragraphs": ["Hello world content."],
-        }
-        mock_summarize.return_value = {
-            "abstract": "Detailed abstract.",
-            "summary": "Brief summary.",
-        }
 
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=_test_app),
@@ -71,13 +56,9 @@ async def test_upload_success():
         data = resp.json()
         assert len(data["documents"]) == 1
         doc = data["documents"][0]
-        assert doc["status"] == "ready"
+        assert doc["status"] == "pending"
         assert doc["file_name"] == "notes.txt"
         assert "id" in doc
-        assert doc["abstract"] == "Detailed abstract."
-        assert doc["summary"] == "Brief summary."
-        mock_index.assert_called_once()
-        mock_cosmos.save_document.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -208,8 +189,9 @@ async def test_delete_document():
 
 @pytest.mark.asyncio
 async def test_delete_document_not_found():
+    """Delete uses always-cleanup semantics — returns 200 even when doc not in Cosmos."""
     patches = _mock_all_deps()
-    with patches["cosmos"] as mock_get_cosmos:
+    with patches["delete_chunks"] as mock_delete, patches["cosmos"] as mock_get_cosmos:
         mock_cosmos = _make_cosmos_mock()
         mock_get_cosmos.return_value = mock_cosmos
 
@@ -219,31 +201,20 @@ async def test_delete_document_not_found():
         ) as client:
             resp = await client.delete("/api/documents/nonexistent-id")
 
-        assert resp.status_code == 404
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "deleted"
+        mock_delete.assert_called_once_with("nonexistent-id")
 
 
 @pytest.mark.asyncio
 async def test_upload_mixed_valid_and_invalid():
-    """Upload a mix of valid and invalid files — valid ones should succeed."""
+    """Upload a mix of valid and invalid files — valid ones get pending, invalid ones fail."""
     patches = _mock_all_deps()
-    with patches["blob"] as mock_blob_cls, \
-         patches["extract"] as mock_extract, \
-         patches["summarize"] as mock_summarize, \
-         patches["index"], \
+    with patches["blob"], patches["extract"], patches["summarize"], patches["index"], \
          patches["cosmos"] as mock_get_cosmos:
-        mock_blob_instance = MagicMock()
-        mock_blob_instance.upload_document.return_value = "https://blob.test/doc"
-        mock_blob_cls.return_value = mock_blob_instance
-
         mock_cosmos = _make_cosmos_mock()
+        mock_cosmos.find_by_content_hash = AsyncMock(return_value=None)
         mock_get_cosmos.return_value = mock_cosmos
-
-        mock_extract.return_value = {
-            "text": "content",
-            "page_count": 1,
-            "paragraphs": ["content"],
-        }
-        mock_summarize.return_value = {"abstract": "abs", "summary": "sum"}
 
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=_test_app),
@@ -261,7 +232,7 @@ async def test_upload_mixed_valid_and_invalid():
         docs = resp.json()["documents"]
         assert len(docs) == 2
         statuses = {d["file_name"]: d["status"] for d in docs}
-        assert statuses["good.txt"] == "ready"
+        assert statuses["good.txt"] == "pending"
         assert statuses["bad.exe"] == "failed"
 
 
@@ -290,6 +261,7 @@ async def test_process_pending_document_with_figures():
         mock_blob_cls.return_value = mock_blob_instance
 
         mock_cosmos = _make_cosmos_mock()
+        mock_cosmos.find_by_content_hash = AsyncMock(return_value=None)
         mock_get_cosmos.return_value = mock_cosmos
 
         mock_extract.return_value = {

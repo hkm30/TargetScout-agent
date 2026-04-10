@@ -134,9 +134,9 @@ def _build_figure_chunks(figures: list[dict]) -> list[dict]:
         caption = fig.get("caption", "")
         description = fig.get("description", "")
         label = fig.get("id", "")
-        chunk_text = f"[Figure {label}] {caption}\n{description}"
+        fig_text = f"[Figure {label}] {caption}\n{description}"
         chunks.append({
-            "text": chunk_text,
+            "text": fig_text,
             "source_type": "figure",
             "page_number": fig.get("page_number", 0),
         })
