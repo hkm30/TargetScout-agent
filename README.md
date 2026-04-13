@@ -141,7 +141,6 @@ Both backend and frontend include Dockerfiles for containerized deployment. The 
 │   │   └── types.ts             # TypeScript type definitions
 │   ├── package.json
 │   └── Dockerfile
-├── mcp-google-scholar/          # MCP server for Google Scholar (not yet integrated)
 ├── infra/                       # Azure deployment scripts
 └── architecture.md              # Detailed architecture documentation
 ```
