@@ -41,6 +41,15 @@ export default function App() {
   const [uploadedDocuments, setUploadedDocuments] = useState<UploadedDocument[]>([]);
   const [userSuggestions, setUserSuggestions] = useState("");
 
+  // Preserve form input so "返回修改" restores previous values
+  const [savedFormValues, setSavedFormValues] = useState({
+    target: "",
+    indication: "",
+    synonyms: "",
+    focus: "",
+    timeRange: "",
+  });
+
   const handleNavigate = (p: Page) => {
     setPage(p);
     setError("");
@@ -66,6 +75,7 @@ export default function App() {
     setPartialResults({});
     setUploadedDocuments([]);
     setUserSuggestions("");
+    setSavedFormValues({ target: "", indication: "", synonyms: "", focus: "", timeRange: "" });
   };
 
   const handleSubmit = async (
@@ -77,6 +87,7 @@ export default function App() {
     documents: UploadedDocument[],
     suggestions: string,
   ) => {
+    setSavedFormValues({ target, indication, synonyms, focus, timeRange });
     setUploadedDocuments(documents);
     setUserSuggestions(suggestions);
     setLoading(true);
@@ -210,7 +221,13 @@ export default function App() {
               <div className="content-title">新建靶点评估</div>
             </div>
             <div className="card">
-              <SearchForm onSubmit={handleSubmit} loading={loading} />
+              <SearchForm
+                onSubmit={handleSubmit}
+                loading={loading}
+                initialValues={savedFormValues}
+                initialDocuments={uploadedDocuments}
+                initialSuggestions={userSuggestions}
+              />
             </div>
           </div>
         )}

@@ -10,7 +10,8 @@ from app.config import settings
 from app.documents.parser import validate_file, extract_text
 from app.documents.chunker import chunk_text
 from app.documents.summarizer import generate_summaries
-from app.documents.vision import describe_all_figures
+# Vision module kept but not used — figure processing disabled for demo performance.
+# from app.documents.vision import describe_all_figures
 from app.knowledge.blob_client import BlobDocumentStorage
 from app.knowledge.cosmos_client import _get_cosmos_docs
 from app.knowledge.search_client import index_document_chunks, delete_document_chunks
@@ -178,32 +179,16 @@ async def process_pending_document(document_id: str) -> dict:
         blob.upload_document, document_id, file_name, content
     )
 
-    # 2. Extract text + figures
+    # 2. Extract text (text-only, no figure processing)
     extracted = await extract_text(file_name, content)
     raw_text = extracted["text"]
     paragraphs = extracted.get("paragraphs") or [p.strip() for p in raw_text.split("\n\n") if p.strip()]
-    figures = extracted.get("figures", [])
 
-    # 3. Understand figures via GPT-5.4 Vision
-    described_figures = await describe_all_figures(figures, paragraphs) if figures else []
-    for fig in described_figures:
-        fig.pop("image_bytes", None)
+    # 3. Generate summaries
+    summaries = await generate_summaries(raw_text, file_name)
 
-    # 4. Merge figure descriptions into text
-    enriched_text, enriched_paragraphs = _merge_figure_descriptions(
-        raw_text, paragraphs, described_figures,
-    )
-
-    # 5. Generate summaries using enriched text
-    summaries = await generate_summaries(enriched_text, file_name)
-
-    # 6. Chunk and index with figure chunks
-    figure_chunks = _build_figure_chunks(described_figures)
-    chunks = chunk_text(
-        text=enriched_text,
-        paragraphs=enriched_paragraphs,
-        figure_chunks=figure_chunks if figure_chunks else None,
-    )
+    # 4. Chunk and index
+    chunks = chunk_text(text=raw_text, paragraphs=paragraphs)
     await index_document_chunks(document_id, file_name, chunks)
 
     # 7. Save metadata to Cosmos
@@ -215,7 +200,6 @@ async def process_pending_document(document_id: str) -> dict:
         "content_hash": content_hash,
         "blob_url": blob_url,
         "page_count": extracted.get("page_count", 0),
-        "figure_count": len(described_figures),
         "chunk_count": len(chunks),
         "abstract": summaries["abstract"],
         "summary": summaries["summary"],

@@ -34,6 +34,17 @@
 > 由于 Pipeline 中包含多次顺序调用（Embedding 生成、Search 查询、Agent 响应），跨区域延迟会显著累积。
 > **建议**：当目标区域支持所需模型时，应将所有资源部署在同一 Azure 区域以最小化延迟。
 
+### Azure 托管资源组
+
+除了 `rg-drug-target-agent` 外，Azure 平台会自动创建以下托管资源组（Managed Resource Groups）来承载底层基础设施。这些资源组由 Azure 自动管理，**不应手动修改或删除其中的内容**。
+
+| 托管资源组 | 创建者 | 用途 |
+|-----------|--------|------|
+| `ME_drugtarget-env-v2_rg-drug-target-agent_southeastasia` | Azure Container Apps | 当 Container Apps Environment 部署到自定义 VNet 时自动创建，包含平台管理的基础设施组件（公共 IP 地址、负载均衡器等）。命名规则：`ME_{环境名}_{父资源组}_{区域}`。参见 [官方文档](https://learn.microsoft.com/en-us/azure/container-apps/custom-virtual-networks#managed-resources)。 |
+| `ai_drugtarget-insights_<ApplicationId>_managed` | Azure Application Insights | 创建 Application Insights（`drugtarget-insights`）时自动生成的托管资源组，包含一个 Log Analytics Workspace（`managed-drugtarget-insights-ws`）作为 Application Insights 的后端日志存储。命名中的 GUID 为 Application Insights 的 ApplicationId。 |
+
+> **注意**：删除 `rg-drug-target-agent` 中的 Container Apps Environment 或 Application Insights 资源时，对应的托管资源组预期会被一并清理。
+
 ### Region 分配
 
 | Region | 服务 |
@@ -141,7 +152,7 @@ Endpoint)  索引)
 2. 用户确认：返回解析结果和子任务规划，等待用户确认（Human-in-the-loop）
 3. 并行执行（asyncio.gather）：
    a. 知识库检索：调用 search_knowledge_base 检索历史情报
-   b. 文档处理（如有上传）：Blob 上传 → 文本提取 → LLM 摘要 → 分块索引
+   b. 文档处理（如有上传）：Blob 上传 → 文本+图表提取(prebuilt-layout) → GPT-5.4 视觉理解图表 → 图表描述合并文本流 → LLM 摘要 → 分块索引（含独立 figure chunks）
 4. 并行调用：文献研究 Agent / 临床试验情报 Agent / 竞争与情报 Agent
    （私有文档摘要 + 用户建议注入 Agent prompt）
 5. 决策推理：将 3 个 Agent 输出 + 知识库历史情报 → 传给决策总结 Agent
@@ -465,7 +476,7 @@ Azure AI Search 混合检索（向量相似 + 关键词匹配）
 | Azure AI Search | 知识库检索层（向量 + 全文混合） | Southeast Asia |
 | Azure Cosmos DB for NoSQL | 结构化存储（通过 Private Endpoint 访问，公网禁用） | Southeast Asia |
 | Azure Blob Storage | 文件存储 + 报告导出 | Southeast Asia |
-| Azure Document Intelligence (S0) | PDF/Word 文档解析（prebuilt-read），Managed Identity 认证 | Southeast Asia |
+| Azure Document Intelligence (S0) | PDF/Word 文档解析（prebuilt-layout + 图表提取），Managed Identity 认证 | Southeast Asia |
 | Azure Container Apps | 前后端部署（VNet 集成，drugtarget-env-v2） | Southeast Asia |
 | Azure Container Registry | 镜像管理 | Southeast Asia |
 | Azure Application Insights | 监控 + 日志 | Southeast Asia |
@@ -526,7 +537,7 @@ Azure AI Search 混合检索（向量相似 + 关键词匹配）
 
 - 支持上传最多 5 个文件（PDF/Word/TXT/MD），单文件 ≤ 10MB
 - 上传即时返回（~1s），仅验证 + 存内存，无 Azure 服务调用
-- 确认运行时文档处理与知识库检索并行：Blob 上传 → Document Intelligence 提取 → LLM 摘要 → 分块索引
+- 确认运行时文档处理与知识库检索并行：Blob 上传 → Document Intelligence 提取(prebuilt-layout + 图表) → GPT-5.4 视觉理解图表 → 描述合并文本流 → LLM 摘要 → 分块索引（含独立 figure chunks）
 - 基于 SHA-256 内容哈希的文件去重（检查内存 pending + Cosmos 已处理）
 - 删除时全链路清理（内存 + Cosmos + Blob + AI Search），即使 Cosmos 记录已不存在也会清理 AI Search 残留索引
 - RunningView 中"知识库检索"和"文档解析"以并排卡片形式展示，直观体现并行执行

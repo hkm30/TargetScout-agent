@@ -92,28 +92,27 @@ async def _fetch_figure_image(client: DocumentIntelligenceClient, result_id: str
 
 
 async def extract_text(filename: str, content: bytes) -> dict:
-    """Extract text and figures from a file.
+    """Extract text from a file.
 
-    Returns {text, page_count, paragraphs, figures}.
+    Returns {text, page_count, paragraphs}.
 
-    PDF/Word -> Azure Document Intelligence (prebuilt-layout with figure extraction)
-    TXT/MD   -> Direct decode (no figures)
+    PDF/Word -> Azure Document Intelligence (prebuilt-read, text-only OCR)
+    TXT/MD   -> Direct decode
     """
     ext = Path(filename).suffix.lower()
 
     if ext in TEXT_EXTENSIONS:
         text = content.decode("utf-8", errors="replace")
         paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-        return {"text": text, "page_count": 1, "paragraphs": paragraphs, "figures": []}
+        return {"text": text, "page_count": 1, "paragraphs": paragraphs}
 
-    # PDF or Word -> Document Intelligence (prebuilt-layout)
+    # PDF or Word -> Document Intelligence (prebuilt-read, text only)
     client = _get_doc_intel_client()
     poller = await asyncio.to_thread(
         client.begin_analyze_document,
-        "prebuilt-layout",
+        "prebuilt-read",
         io.BytesIO(content),
         content_type="application/octet-stream",
-        output=["figures"],
     )
     result = await asyncio.to_thread(poller.result)
 
@@ -123,54 +122,4 @@ async def extract_text(filename: str, content: bytes) -> dict:
     if result.paragraphs:
         paragraphs = [p.content for p in result.paragraphs if p.content]
 
-    # Extract figures
-    figures = []
-    if result.figures:
-        # Get result_id for figure image retrieval
-        result_id = None
-        # 1. Try poller.details which contains operation_id (= result_id)
-        try:
-            details = poller.details
-            if callable(details):
-                details = details()
-            if isinstance(details, dict):
-                result_id = details.get("operation_id")
-        except Exception:
-            pass
-        # 2. Fallback: parse from continuation_token (which is a method, not property)
-        if not result_id:
-            try:
-                ct = poller.continuation_token
-                token = ct() if callable(ct) else ct
-                if token and "/analyzeResults/" in token:
-                    result_id = token.split("/analyzeResults/")[-1].split("?")[0].split("/")[0]
-            except Exception:
-                pass
-
-        for fig in result.figures:
-            caption = ""
-            if fig.caption:
-                caption = fig.caption.content or ""
-            page_number = 0
-            if fig.bounding_regions:
-                page_number = fig.bounding_regions[0].page_number
-            span_offset = 0
-            if fig.spans:
-                span_offset = fig.spans[0].offset
-
-            image_bytes = None
-            if result_id and fig.id:
-                image_bytes = await _fetch_figure_image(client, result_id, fig.id)
-
-            if image_bytes:
-                figures.append({
-                    "id": fig.id,
-                    "page_number": page_number,
-                    "caption": caption,
-                    "image_bytes": image_bytes,
-                    "span_offset": span_offset,
-                })
-            else:
-                logger.warning("Skipping figure %s: could not retrieve image", fig.id)
-
-    return {"text": text, "page_count": page_count, "paragraphs": paragraphs, "figures": figures}
+    return {"text": text, "page_count": page_count, "paragraphs": paragraphs}

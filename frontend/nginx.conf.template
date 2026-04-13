@@ -6,6 +6,11 @@ server {
     location / {
         root /usr/share/nginx/html;
         try_files $uri /index.html;
+        add_header Cache-Control "no-cache" always;
+    }
+    location /assets/ {
+        root /usr/share/nginx/html;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
     }
     location /api/ {
         set $backend "${BACKEND_URL}";

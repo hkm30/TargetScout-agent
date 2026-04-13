@@ -2,23 +2,34 @@ import { useState, useRef } from "react";
 import type { UploadedDocument } from "../types";
 import { uploadDocuments, deleteDocument } from "../api";
 
+interface FormValues {
+  target: string;
+  indication: string;
+  synonyms: string;
+  focus: string;
+  timeRange: string;
+}
+
 interface Props {
   onSubmit: (target: string, indication: string, synonyms: string, focus: string, timeRange: string, documents: UploadedDocument[], userSuggestions: string) => void;
   loading: boolean;
+  initialValues?: FormValues;
+  initialDocuments?: UploadedDocument[];
+  initialSuggestions?: string;
 }
 
 const ACCEPTED_TYPES = ".pdf,.docx,.txt,.md";
 const MAX_FILES = 5;
 const MAX_SIZE_MB = 10;
 
-export function SearchForm({ onSubmit, loading }: Props) {
-  const [target, setTarget] = useState("");
-  const [indication, setIndication] = useState("");
-  const [synonyms, setSynonyms] = useState("");
-  const [focus, setFocus] = useState("");
-  const [timeRange, setTimeRange] = useState("");
-  const [userSuggestions, setUserSuggestions] = useState("");
-  const [documents, setDocuments] = useState<UploadedDocument[]>([]);
+export function SearchForm({ onSubmit, loading, initialValues, initialDocuments, initialSuggestions }: Props) {
+  const [target, setTarget] = useState(initialValues?.target ?? "");
+  const [indication, setIndication] = useState(initialValues?.indication ?? "");
+  const [synonyms, setSynonyms] = useState(initialValues?.synonyms ?? "");
+  const [focus, setFocus] = useState(initialValues?.focus ?? "");
+  const [timeRange, setTimeRange] = useState(initialValues?.timeRange ?? "");
+  const [userSuggestions, setUserSuggestions] = useState(initialSuggestions ?? "");
+  const [documents, setDocuments] = useState<UploadedDocument[]>(initialDocuments ?? []);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 

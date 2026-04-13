@@ -465,10 +465,16 @@ async def run_full_pipeline_stream(
     kb_data = json.loads(kb_result)
     yield {"event": "status", "data": {"stage": "knowledge_base", "status": "completed"}}
 
-    # Wait for document processing to finish (if any)
+    # Wait for document processing to finish (if any), sending heartbeats
+    # to keep the SSE connection alive (Azure Container Apps ~240s idle timeout).
     docs: list[dict] = []
     if doc_task:
-        docs = await doc_task
+        while not doc_task.done():
+            try:
+                await asyncio.wait_for(asyncio.shield(doc_task), timeout=30)
+            except asyncio.TimeoutError:
+                yield {"event": "heartbeat", "data": {"stage": "documents"}}
+        docs = doc_task.result()
         yield {"event": "status", "data": {"stage": "documents", "status": "completed"}}
         failed_count = len(document_ids) - len(docs)
         if not docs:
@@ -519,7 +525,11 @@ async def run_full_pipeline_stream(
     pending = set(tasks.keys())
 
     while pending:
-        done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+        done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED, timeout=30)
+        if not done:
+            # No agent finished yet — send heartbeat to keep SSE alive
+            yield {"event": "heartbeat", "data": {"stage": "research"}}
+            continue
         for task in done:
             key = tasks[task]
             try:
@@ -537,12 +547,18 @@ async def run_full_pipeline_stream(
     clin_result = resolved_map["clinical_trials"]
     comp_result = resolved_map["competition"]
 
-    # Step 3: Decision agent
+    # Step 3: Decision agent (with heartbeats to keep SSE alive)
     yield {"event": "status", "data": {"stage": "decision", "status": "started"}}
     decision_prompt = _build_decision_prompt(target, indication, lit_result, clin_result, comp_result, kb_data)
     if doc_context:
         decision_prompt = doc_context + "\n" + decision_prompt
-    decision_result = await run_sub_agent(agent_names["decision"], decision_prompt)
+    decision_task = asyncio.create_task(run_sub_agent(agent_names["decision"], decision_prompt))
+    while not decision_task.done():
+        try:
+            await asyncio.wait_for(asyncio.shield(decision_task), timeout=30)
+        except asyncio.TimeoutError:
+            yield {"event": "heartbeat", "data": {"stage": "decision"}}
+    decision_result = decision_task.result()
 
     report = _parse_and_validate(decision_result)
 

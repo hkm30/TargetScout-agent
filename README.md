@@ -42,6 +42,7 @@ Literature   Clinical    Competition
 - Multi-agent parallel evidence gathering (literature, clinical trials, competition)
 - Human-in-the-loop confirmation before full analysis
 - Private document upload and analysis (PDF/Word/TXT/Markdown, up to 5 files)
+- Document image understanding — extracts figures/charts from PDF/Word via Document Intelligence (`prebuilt-layout`), describes them with GPT-5.4 multimodal vision, merges descriptions into text flow and indexes as separate figure chunks
 - Content-based deduplication (SHA-256) — duplicate files reuse existing analysis
 - Deferred document processing — upload is instant (~1s), heavy processing runs at confirm time in parallel with knowledge base retrieval
 - Real-time streaming progress via Server-Sent Events (SSE)
