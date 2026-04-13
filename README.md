@@ -42,7 +42,6 @@ Literature   Clinical    Competition
 - Multi-agent parallel evidence gathering (literature, clinical trials, competition)
 - Human-in-the-loop confirmation before full analysis
 - Private document upload and analysis (PDF/Word/TXT/Markdown, up to 5 files)
-- Document image understanding — extracts figures/charts from PDF/Word via Document Intelligence (`prebuilt-layout`), describes them with GPT-5.4 multimodal vision, merges descriptions into text flow and indexes as separate figure chunks
 - Content-based deduplication (SHA-256) — duplicate files reuse existing analysis
 - Deferred document processing — upload is instant (~1s), heavy processing runs at confirm time in parallel with knowledge base retrieval
 - Real-time streaming progress via Server-Sent Events (SSE)
@@ -95,9 +94,12 @@ See [backend/.env.example](backend/.env.example) for all required configuration:
 | `SEARCH_ENDPOINT` | Azure AI Search endpoint |
 | `SEARCH_API_KEY` | Azure AI Search API key |
 | `COSMOS_ENDPOINT` | Azure Cosmos DB endpoint |
-| `COSMOS_DATABASE` | Cosmos DB database name |
+| `COSMOS_DATABASE` | Cosmos DB database name (default: `drugtargetdb`) |
 | `STORAGE_ACCOUNT_NAME` | Azure Blob Storage account |
-| `AZURE_DOC_INTELLIGENCE_ENDPOINT` | Azure Document Intelligence endpoint (for PDF/Word parsing) |
+| `AZURE_DOC_INTELLIGENCE_ENDPOINT` | Azure Document Intelligence endpoint |
+| `AZURE_DOC_INTELLIGENCE_KEY` | Azure Document Intelligence API key |
+| `API_KEY` | Optional API key for backend authentication |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Azure Application Insights connection string |
 
 ## Deployment
 
@@ -119,21 +121,23 @@ Both backend and frontend include Dockerfiles for containerized deployment. The 
 .
 ├── backend/
 │   ├── app/
-│   │   ├── main.py              # FastAPI entry, SSE streaming
+│   │   ├── main.py              # FastAPI entry, routes & middleware
 │   │   ├── config.py            # Environment configuration
 │   │   ├── agents/              # Orchestrator + agent definitions
 │   │   ├── tools/               # PubMed, ClinicalTrials, search tools
 │   │   ├── knowledge/           # Cosmos DB, AI Search, Blob clients
-│   │   ├── documents/           # Private document upload, parsing, chunking
+│   │   ├── documents/           # Private document upload, parsing, chunking, summarization
 │   │   └── export/              # Report generation (MD/Word/PDF)
 │   ├── tests/                   # Unit tests
 │   ├── pyproject.toml
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
+│   │   ├── main.tsx             # React entry point
 │   │   ├── App.tsx              # Main app with sidebar layout
-│   │   ├── components/          # React components
-│   │   ├── api.ts               # Backend API client
+│   │   ├── App.css              # Application styles
+│   │   ├── components/          # React components (13 files)
+│   │   ├── api.ts               # Backend API client (includes SSE streaming)
 │   │   └── types.ts             # TypeScript type definitions
 │   ├── package.json
 │   └── Dockerfile
@@ -152,13 +156,14 @@ Both backend and frontend include Dockerfiles for containerized deployment. The 
 | POST | `/api/documents/upload` | Upload private documents (multipart, max 5 files) |
 | GET | `/api/documents/{id}` | Get document metadata and summaries |
 | DELETE | `/api/documents/{id}` | Delete document and all associated data |
-| GET | `/api/knowledge/search` | Search knowledge base |
+| POST | `/api/knowledge/search` | Search knowledge base |
 | GET | `/api/reports` | List historical reports |
 | GET | `/api/reports/{id}` | Get single report |
 | DELETE | `/api/reports/{id}` | Delete report |
 | POST | `/api/export/markdown` | Export as Markdown |
 | POST | `/api/export/word` | Export as Word document |
 | POST | `/api/export/pdf` | Export as PDF |
+| GET | `/api/health` | Health check (agents status, build info) |
 
 ## License
 
