@@ -12,14 +12,18 @@ def chunk_text(
     paragraphs: list[str] | None = None,
     max_tokens: int = 600,
     overlap_tokens: int = 100,
+    figure_chunks: list[dict] | None = None,
 ) -> list[dict]:
     """Split text into overlapping chunks.
 
     Strategy:
     1. If paragraphs are provided, group them into chunks up to max_tokens.
     2. If a single paragraph exceeds max_tokens, split it by token window.
+    3. If figure_chunks are provided, append them after text chunks with
+       sequential chunk_index values and computed token_count.
 
-    Returns list of {text, chunk_index, token_count}.
+    Returns list of {text, chunk_index, token_count} for text chunks, plus
+    {text, chunk_index, token_count, source_type, page_number} for figure chunks.
     """
     if not paragraphs:
         paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
@@ -79,5 +83,18 @@ def chunk_text(
     if current_parts:
         chunk_text_str = "\n\n".join(current_parts)
         chunks.append({"text": chunk_text_str, "chunk_index": chunk_index, "token_count": current_tokens})
+        chunk_index += 1
+
+    # Append figure chunks with sequential indexes continuing from text chunks
+    if figure_chunks:
+        for fig in figure_chunks:
+            chunks.append({
+                "text": fig["text"],
+                "chunk_index": chunk_index,
+                "token_count": count_tokens(fig["text"]),
+                "source_type": fig["source_type"],
+                "page_number": fig["page_number"],
+            })
+            chunk_index += 1
 
     return chunks

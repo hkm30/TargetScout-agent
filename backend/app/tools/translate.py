@@ -63,7 +63,7 @@ async def ensure_english(query: str) -> str:
                 {"role": "user", "content": query},
             ],
             temperature=0,
-            max_tokens=200,
+            max_completion_tokens=200,
         )
         translated = resp.choices[0].message.content.strip()
         logger.info("Translated query: '%s' -> '%s'", query, translated)

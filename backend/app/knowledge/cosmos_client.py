@@ -36,6 +36,20 @@ class CosmosDocumentStore:
             self.container.delete_item, item=document_id, partition_key=document_id
         )
 
+    async def find_by_content_hash(self, content_hash: str) -> dict | None:
+        """Find a document by its SHA-256 content hash. Returns None if not found."""
+        query = "SELECT * FROM c WHERE c.content_hash = @hash"
+        parameters = [{"name": "@hash", "value": content_hash}]
+        items = await asyncio.to_thread(
+            lambda: list(self.container.query_items(
+                query=query,
+                parameters=parameters,
+                enable_cross_partition_query=True,
+                max_item_count=1,
+            ))
+        )
+        return items[0] if items else None
+
     async def get_documents_by_ids(self, document_ids: list[str]) -> list[dict]:
         """Fetch multiple documents by ID. Missing documents are silently skipped."""
         docs = []

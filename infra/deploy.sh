@@ -67,7 +67,7 @@ echo ""
 # ============================================================
 # Build and push
 # ============================================================
-TAG="${1:-$(git -C "$PROJECT_DIR" rev-parse --short HEAD)}"
+TAG="${1:-$(git -C "$PROJECT_DIR" rev-parse --short HEAD)-$(date +%Y%m%d%H%M%S)}"
 echo ">>> Image tag: $TAG"
 
 az acr login --name "$ACR_NAME"

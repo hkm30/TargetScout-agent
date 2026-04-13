@@ -41,6 +41,10 @@ Literature   Clinical    Competition
 
 - Multi-agent parallel evidence gathering (literature, clinical trials, competition)
 - Human-in-the-loop confirmation before full analysis
+- Private document upload and analysis (PDF/Word/TXT/Markdown, up to 5 files)
+- Document image understanding — extracts figures/charts from PDF/Word via Document Intelligence (`prebuilt-layout`), describes them with GPT-5.4 multimodal vision, merges descriptions into text flow and indexes as separate figure chunks
+- Content-based deduplication (SHA-256) — duplicate files reuse existing analysis
+- Deferred document processing — upload is instant (~1s), heavy processing runs at confirm time in parallel with knowledge base retrieval
 - Real-time streaming progress via Server-Sent Events (SSE)
 - Persistent knowledge base with vector search for historical context
 - Report export in Markdown, Word (.docx), and PDF
@@ -57,6 +61,7 @@ Literature   Clinical    Competition
   - Azure AI Search
   - Azure Cosmos DB for NoSQL
   - Azure Blob Storage
+  - Azure Document Intelligence (for PDF/Word parsing)
 
 ### Backend
 
@@ -92,6 +97,7 @@ See [backend/.env.example](backend/.env.example) for all required configuration:
 | `COSMOS_ENDPOINT` | Azure Cosmos DB endpoint |
 | `COSMOS_DATABASE` | Cosmos DB database name |
 | `STORAGE_ACCOUNT_NAME` | Azure Blob Storage account |
+| `AZURE_DOC_INTELLIGENCE_ENDPOINT` | Azure Document Intelligence endpoint (for PDF/Word parsing) |
 
 ## Deployment
 
@@ -118,6 +124,7 @@ Both backend and frontend include Dockerfiles for containerized deployment. The 
 │   │   ├── agents/              # Orchestrator + agent definitions
 │   │   ├── tools/               # PubMed, ClinicalTrials, search tools
 │   │   ├── knowledge/           # Cosmos DB, AI Search, Blob clients
+│   │   ├── documents/           # Private document upload, parsing, chunking
 │   │   └── export/              # Report generation (MD/Word/PDF)
 │   ├── tests/                   # Unit tests
 │   ├── pyproject.toml
@@ -142,6 +149,9 @@ Both backend and frontend include Dockerfiles for containerized deployment. The 
 | POST | `/api/assess/parse` | Parse target + indication, return confirmation |
 | POST | `/api/assess/confirm` | Run full analysis pipeline (SSE stream) |
 | POST | `/api/assess` | Direct one-step analysis |
+| POST | `/api/documents/upload` | Upload private documents (multipart, max 5 files) |
+| GET | `/api/documents/{id}` | Get document metadata and summaries |
+| DELETE | `/api/documents/{id}` | Delete document and all associated data |
 | GET | `/api/knowledge/search` | Search knowledge base |
 | GET | `/api/reports` | List historical reports |
 | GET | `/api/reports/{id}` | Get single report |

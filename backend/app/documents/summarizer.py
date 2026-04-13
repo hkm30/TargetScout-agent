@@ -49,7 +49,7 @@ async def generate_summaries(text: str, filename: str = "") -> dict:
         client.chat.completions.create,
         model=settings.MODEL_DEPLOYMENT,
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=8000,
+        max_completion_tokens=8000,
     )
 
     result_text = response.choices[0].message.content or ""
