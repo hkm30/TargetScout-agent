@@ -42,7 +42,7 @@ class Settings:
     # Blob Storage — uses DefaultAzureCredential (key auth disabled)
     STORAGE_ACCOUNT_NAME: str = os.environ.get("STORAGE_ACCOUNT_NAME", "")
     BLOB_REPORTS_CONTAINER: str = os.environ.get("BLOB_REPORTS_CONTAINER", "reports")
-    BLOB_SNAPSHOTS_CONTAINER: str = os.environ.get("BLOB_SNAPSHOTS_CONTAINER", "raw-search-snapshots")
+    BLOB_SNAPSHOTS_CONTAINER: str = os.environ.get("BLOB_SNAPSHOTS_CONTAINER", "snapshots")
 
     # Azure Document Intelligence
     DOC_INTELLIGENCE_ENDPOINT: str = os.environ.get("AZURE_DOC_INTELLIGENCE_ENDPOINT", "")

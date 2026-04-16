@@ -44,8 +44,9 @@ export interface UploadedDocument {
   id: string;
   file_name: string;
   file_size: number;
-  status: "uploading" | "parsing" | "ready" | "failed";
+  status: "uploading" | "parsing" | "pending" | "ready" | "failed" | "duplicate";
   error?: string;
+  message?: string;
   abstract?: string;
   summary?: string;
   created_at?: string;

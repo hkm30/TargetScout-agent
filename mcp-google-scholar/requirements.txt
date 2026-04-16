@@ -1,6 +1,0 @@
-mcp[cli]>=1.0.0
-requests
-beautifulsoup4
-scholarly
-starlette
-uvicorn

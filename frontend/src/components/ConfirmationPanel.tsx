@@ -28,7 +28,7 @@ export function ConfirmationPanel({ parseResult, documents, initialSuggestions, 
       synonyms,
       focus,
       time_range: timeRange,
-      document_ids: documents.filter((d) => d.status === "ready").map((d) => d.id),
+      document_ids: [...new Set(documents.filter((d) => d.status === "ready" || d.status === "duplicate" || d.status === "pending").map((d) => d.id))],
       user_suggestions: userSuggestions,
     });
   };
@@ -131,7 +131,7 @@ export function ConfirmationPanel({ parseResult, documents, initialSuggestions, 
               }}
             >
               <span>
-                {doc.status === "ready" ? "✓" : doc.status === "failed" ? "✗" : "⏳"}{" "}
+                {(doc.status === "ready" || doc.status === "pending" || doc.status === "duplicate") ? "✓" : doc.status === "failed" ? "✗" : "⏳"}{" "}
                 {doc.file_name}
                 <span style={{ color: "#9ca3af", marginLeft: "8px" }}>
                   ({(doc.file_size / 1024 / 1024).toFixed(1)}MB)

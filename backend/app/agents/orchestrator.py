@@ -426,11 +426,63 @@ async def run_full_pipeline_stream(
     """Run the pipeline, yielding SSE event dicts as progress occurs."""
     query = f"{target} {indication}".strip()
 
-    # Step 1: Knowledge base search
+    # Step 1: Knowledge base search ‖ Document processing (parallel)
     yield {"event": "status", "data": {"stage": "knowledge_base", "status": "started"}}
-    kb_result = await search_knowledge_base(query=query, target=target, indication=indication)
+
+    async def _kb_search():
+        return await search_knowledge_base(query=query, target=target, indication=indication)
+
+    async def _process_documents(doc_ids: list[str]) -> list[dict]:
+        from app.documents.router import process_pending_document
+        processed = []
+        for did in doc_ids:
+            try:
+                doc = await process_pending_document(did)
+                processed.append(doc)
+            except Exception as e:
+                logger.error("Failed to process document %s: %s", did, e)
+        return processed
+
+    kb_task = asyncio.create_task(_kb_search())
+
+    if document_ids:
+        yield {"event": "status", "data": {"stage": "documents", "status": "started"}}
+        doc_task = asyncio.create_task(_process_documents(document_ids))
+    else:
+        doc_task = None
+
+    try:
+        kb_result = await kb_task
+    except Exception:
+        # KB search failed — cancel doc_task to avoid orphaned background processing
+        if doc_task and not doc_task.done():
+            doc_task.cancel()
+            try:
+                await doc_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        raise
     kb_data = json.loads(kb_result)
     yield {"event": "status", "data": {"stage": "knowledge_base", "status": "completed"}}
+
+    # Wait for document processing to finish (if any), sending heartbeats
+    # to keep the SSE connection alive (Azure Container Apps ~240s idle timeout).
+    docs: list[dict] = []
+    if doc_task:
+        while not doc_task.done():
+            try:
+                await asyncio.wait_for(asyncio.shield(doc_task), timeout=30)
+            except asyncio.TimeoutError:
+                yield {"event": "heartbeat", "data": {"stage": "documents"}}
+        docs = doc_task.result()
+        yield {"event": "status", "data": {"stage": "documents", "status": "completed"}}
+        failed_count = len(document_ids) - len(docs)
+        if not docs:
+            logger.error("All %d documents failed processing", len(document_ids))
+            yield {"event": "warning", "data": {"message": "所有上传文档处理失败，评估结果将不包含私有文档上下文"}}
+        elif failed_count > 0:
+            logger.warning("%d of %d documents failed processing", failed_count, len(document_ids))
+            yield {"event": "warning", "data": {"message": f"{failed_count} 个文档处理失败（共 {len(document_ids)} 个），部分文档上下文将缺失"}}
 
     # Step 2: Translate inputs to English for external API searches
     en_target = await ensure_english(target)
@@ -443,17 +495,7 @@ async def run_full_pipeline_stream(
 
     # Inject private document context and user suggestions if provided
     doc_context = ""
-    if document_ids:
-        from app.knowledge.cosmos_client import _get_cosmos_docs
-        docs = await _get_cosmos_docs().get_documents_by_ids(document_ids)
-        found_ids = {d["id"] for d in docs}
-        missing = [did for did in document_ids if did not in found_ids]
-        if missing:
-            logger.warning("Documents not found in store (server may have restarted): %s", missing)
-            yield {"event": "warning", "data": {"message": f"部分文档未找到（服务可能已重启），缺失 {len(missing)} 个文档"}}
-        if not docs and document_ids:
-            logger.error("All %d requested documents are missing — results will lack document context", len(document_ids))
-            yield {"event": "warning", "data": {"message": "所有上传文档均未找到，评估结果将不包含私有文档上下文"}}
+    if docs:
         doc_context = _build_document_context(docs, user_suggestions)
     elif user_suggestions:
         doc_context = _build_document_context([], user_suggestions)
@@ -483,7 +525,11 @@ async def run_full_pipeline_stream(
     pending = set(tasks.keys())
 
     while pending:
-        done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+        done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED, timeout=30)
+        if not done:
+            # No agent finished yet — send heartbeat to keep SSE alive
+            yield {"event": "heartbeat", "data": {"stage": "research"}}
+            continue
         for task in done:
             key = tasks[task]
             try:
@@ -501,12 +547,18 @@ async def run_full_pipeline_stream(
     clin_result = resolved_map["clinical_trials"]
     comp_result = resolved_map["competition"]
 
-    # Step 3: Decision agent
+    # Step 3: Decision agent (with heartbeats to keep SSE alive)
     yield {"event": "status", "data": {"stage": "decision", "status": "started"}}
     decision_prompt = _build_decision_prompt(target, indication, lit_result, clin_result, comp_result, kb_data)
     if doc_context:
         decision_prompt = doc_context + "\n" + decision_prompt
-    decision_result = await run_sub_agent(agent_names["decision"], decision_prompt)
+    decision_task = asyncio.create_task(run_sub_agent(agent_names["decision"], decision_prompt))
+    while not decision_task.done():
+        try:
+            await asyncio.wait_for(asyncio.shield(decision_task), timeout=30)
+        except asyncio.TimeoutError:
+            yield {"event": "heartbeat", "data": {"stage": "decision"}}
+    decision_result = decision_task.result()
 
     report = _parse_and_validate(decision_result)
 

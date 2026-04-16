@@ -9,6 +9,7 @@ interface Props {
 
 const STAGE_LABELS: Record<string, string> = {
   knowledge_base: "知识库检索",
+  documents: "文档解析",
   literature: "📚 文献研究",
   clinical_trials: "🏥 临床试验分析",
   competition: "🏢 竞争情报",
@@ -42,8 +43,9 @@ function summarizeResult(_stage: string, data: Record<string, unknown>): string 
 }
 
 export function RunningView({ target, indication, agentProgress, partialResults }: Props) {
+  const hasDocuments = agentProgress.documents !== undefined;
   const done = completedCount(agentProgress);
-  const total = 6;
+  const total = hasDocuments ? 7 : 6;
 
   return (
     <div>
@@ -60,14 +62,48 @@ export function RunningView({ target, indication, agentProgress, partialResults 
           <span className="text-muted">进度 {done}/{total}</span>
         </div>
 
-        {/* Phase 1: Knowledge base */}
-        <div className="progress-phase">
-          <span style={{ fontSize: 16 }}>{stageIcon(agentProgress.knowledge_base)}</span>
-          <span>{STAGE_LABELS.knowledge_base}</span>
-          <span className="text-muted" style={{ marginLeft: "auto" }}>
-            {agentProgress.knowledge_base === "completed" ? "完成" : agentProgress.knowledge_base === "started" ? "进行中..." : "等待中"}
-          </span>
-        </div>
+        {/* Phase 1: Knowledge base + Document processing (parallel) */}
+        {hasDocuments ? (
+          <div className="parallel-prep">
+            {(["knowledge_base", "documents"] as const).map((key) => {
+              const status = agentProgress[key];
+              let cardClass = "prep-card prep-card--waiting";
+              let icon = "⬜";
+              let statusText = "等待中";
+              if (status === "completed") {
+                cardClass = "prep-card prep-card--done";
+                icon = "✅";
+                statusText = "完成";
+              } else if (status === "started") {
+                cardClass = "prep-card prep-card--running";
+                icon = "⏳";
+                statusText = "进行中...";
+              }
+              return (
+                <div key={key} className={cardClass}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 16 }}>{icon}</span>
+                    <span style={{ fontWeight: 500 }}>{STAGE_LABELS[key]}</span>
+                  </div>
+                  <span className="text-muted" style={{ fontSize: 12 }}>{statusText}</span>
+                  {status === "started" && (
+                    <div className="prep-card__progress-bar">
+                      <div className="prep-card__progress-fill" />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="progress-phase">
+            <span style={{ fontSize: 16 }}>{stageIcon(agentProgress.knowledge_base)}</span>
+            <span>{STAGE_LABELS.knowledge_base}</span>
+            <span className="text-muted" style={{ marginLeft: "auto" }}>
+              {agentProgress.knowledge_base === "completed" ? "完成" : agentProgress.knowledge_base === "started" ? "进行中..." : "等待中"}
+            </span>
+          </div>
+        )}
 
         {/* Phase 2: Parallel agents */}
         <div className="parallel-agents">

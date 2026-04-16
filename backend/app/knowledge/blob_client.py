@@ -92,6 +92,14 @@ class BlobDocumentStorage:
         )
         return blob_client.url
 
+    def download_document(self, document_id: str, filename: str) -> bytes:
+        """Download a document's raw content from blob storage."""
+        from pathlib import Path
+        ext = Path(filename).suffix.lower()
+        blob_name = f"{document_id}{ext}"
+        blob_client = self.container.get_blob_client(blob_name)
+        return blob_client.download_blob().readall()
+
     def delete_document(self, document_id: str, filename: str):
         """Delete a document file from blob storage."""
         from pathlib import Path

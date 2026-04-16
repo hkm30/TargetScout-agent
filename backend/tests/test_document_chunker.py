@@ -111,3 +111,34 @@ def test_chunk_token_count_accurate():
     for chunk in chunks:
         actual = count_tokens(chunk["text"])
         assert chunk["token_count"] == actual or abs(chunk["token_count"] - actual) <= 1
+
+
+def test_chunk_with_figure_chunks_appended():
+    """Figure chunks should be appended after regular text chunks with sequential indexes."""
+    paragraphs = ["Regular paragraph content here."]
+    text = paragraphs[0]
+    figure_chunks = [
+        {"text": "[Figure 1.0] A bar chart showing IC50 values.\nDescription of figure.", "source_type": "figure", "page_number": 2},
+        {"text": "[Figure 1.1] Molecular structure of compound X.\nDescription of structure.", "source_type": "figure", "page_number": 3},
+    ]
+    chunks = chunk_text(text, paragraphs=paragraphs, figure_chunks=figure_chunks)
+    assert chunks[0]["text"] == "Regular paragraph content here."
+    assert chunks[0]["chunk_index"] == 0
+    assert "source_type" not in chunks[0]
+    assert chunks[1]["text"] == figure_chunks[0]["text"]
+    assert chunks[1]["chunk_index"] == 1
+    assert chunks[1]["source_type"] == "figure"
+    assert chunks[1]["page_number"] == 2
+    assert chunks[1]["token_count"] > 0
+    assert chunks[2]["chunk_index"] == 2
+    assert chunks[2]["source_type"] == "figure"
+
+
+def test_chunk_with_no_figure_chunks():
+    """When figure_chunks is None or empty, behavior is unchanged."""
+    text = "Simple text."
+    chunks_none = chunk_text(text, paragraphs=["Simple text."], figure_chunks=None)
+    chunks_empty = chunk_text(text, paragraphs=["Simple text."], figure_chunks=[])
+    assert len(chunks_none) == 1
+    assert len(chunks_empty) == 1
+    assert "source_type" not in chunks_none[0]

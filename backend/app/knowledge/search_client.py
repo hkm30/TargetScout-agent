@@ -227,7 +227,7 @@ async def index_document_chunks(document_id: str, file_name: str, chunks: list[d
             "content": chunk["text"],
             "chunk_index": chunk["chunk_index"],
             "page_number": chunk.get("page_number", 0),
-            "source_type": "private_document",
+            "source_type": chunk.get("source_type", "private_document"),
             "created_at": now,
             "content_vector": vector,
         })
@@ -285,8 +285,11 @@ async def delete_document_chunks(document_id: str):
         select=["id"],
     )
     chunk_ids = [{"id": r["id"]} for r in results]
+    logger.info("delete_document_chunks: document_id=%s, found %d chunks: %s",
+                document_id, len(chunk_ids), [c["id"] for c in chunk_ids[:10]])
     if chunk_ids:
         await asyncio.to_thread(client.delete_documents, chunk_ids)
+        logger.info("delete_document_chunks: deleted %d chunks for %s", len(chunk_ids), document_id)
 
 
 async def unified_search(query: str, top_k: int = 5) -> list[dict]:
